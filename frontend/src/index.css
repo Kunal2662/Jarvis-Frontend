@@ -1,0 +1,173 @@
+@import './styles/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: var(--line-default);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    background-color: var(--surface-canvas);
+    color: var(--content-primary);
+    font-feature-settings: 'cv11', 'ss01';
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Ambient JARVIS canvas: a quiet radial depth, never a texture. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(120% 80% at 85% -10%, var(--ai-aura-soft), transparent 55%),
+      radial-gradient(90% 70% at 10% 110%, var(--accent-soft), transparent 60%);
+    opacity: 0.5;
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--surface-canvas),
+      0 0 0 4px var(--accent-ring);
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background: var(--accent-soft-hover);
+    color: var(--content-primary);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--content-tertiary);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* ============================================================
+     LIQUID GLASS FOUNDATION
+     Adaptive: real backdrop-blur when supported + capable device
+     (html[data-glass="on"]); otherwise a solid opaque fallback.
+     ============================================================ */
+  .glass {
+    position: relative;
+    background-color: var(--glass-fallback);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--elevation-3), var(--inner-top);
+    isolation: isolate;
+  }
+
+  html[data-glass='on'] .glass {
+    background-color: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  html[data-glass='on'] .glass-strong {
+    background-color: var(--glass-bg-strong);
+  }
+
+  /* Luminous top edge + soft reflection sheen */
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      var(--glass-highlight) 0%,
+      transparent 22%,
+      transparent 100%
+    );
+    opacity: 0.6;
+    z-index: -1;
+  }
+
+  /* Depth-tier glass thickness */
+  .glass-thin {
+    --glass-blur: 12px;
+  }
+  .glass-thick {
+    --glass-blur: 40px;
+  }
+
+  /* Content stays crystal-clear above the glass substrate */
+  .glass > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--surface-hover),
+      transparent
+    );
+    animation: shimmer 1.8s infinite;
+  }
+
+  /* Magnetic / soft-press interaction helper */
+  .press {
+    transition: transform 140ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .press:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Respect reduced motion everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

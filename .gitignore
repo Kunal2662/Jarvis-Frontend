@@ -1,0 +1,37 @@
+# --- Secrets & credentials (never commit) ---
+.env
+.env.*
+!.env.example
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
+
+# --- Node / frontend ---
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# --- Python / backend ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# --- Build caches ---
+*.tsbuildinfo
+
+# --- Storybook ---
+storybook-static/
+
+# --- OS & editor ---
+.DS_Store
+Thumbs.db
+.idea/
+*.swp

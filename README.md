@@ -7,6 +7,27 @@
 > intentional placeholders.** Read [Current Project Status](#current-project-status) before
 > assuming anything is missing by accident.
 
+> ## 🏛️ ARCHITECTURE CHANGE — read this before writing any UI code
+>
+> **As of 2026-08-06, JARVIS follows a [single workspace architecture](./docs/architecture/UI-ARCHITECTURE.md).**
+> The sidebar-based shell currently running in `src/app/` is **superseded** and is being replaced.
+>
+> ```
+> Top Bar  →  Adaptive Workspace  →  Status Bar
+> ```
+>
+> - **No sidebars. No drawers. No dock. No hidden nav panels.**
+> - **Ten user-facing surfaces, maximum** — named for outcomes, not systems.
+> - **The conversation is the primary surface**, never more than one interaction away.
+> - **Widgets expand in place**; the same widget also renders inline in a chat thread.
+> - **Every technical concept** (memory internals, knowledge graph, vector store, embeddings, prompts,
+>   MCP, tool registry, providers, API keys, logs, diagnostics) lives behind **Developer Mode** —
+>   off and invisible by default.
+>
+> **No application code has changed yet.** The refactor is fully specified in
+> **[`docs/architecture/`](./docs/architecture/)** — read [that index](./docs/architecture/README.md)
+> first, then [MIGRATION-PLAN.md](./docs/architecture/MIGRATION-PLAN.md) for the staged execution path.
+
 This README is the **single source of truth** for the project. It is written so that a human or an
 AI agent can pick the project up cold and continue development **without re-reading the whole
 codebase**. If you are an AI assistant, read [AI Handover Notes](#ai-handover-notes) and
@@ -66,11 +87,16 @@ Arc / Linear / Notion / Raycast.
 | **Phase 4 — Home / Command Center** | ✅ Complete |
 | **Phase 5 — AI Chat** | ✅ Complete (streaming MVP) |
 | **Phase 6 — Voice Assistant** | 🟡 **In progress** — overlay + STT done, wake word / TTS pending |
-| **Phase 7+ — Feature Modules** | ⬜ Not started (18 placeholder routes exist) |
+| **Phase 7 — Single Workspace Architecture** | 📐 **Specified, not implemented** — 7-A shell · 7-B widgets · 7-C Developer Mode · 7-D **startup animation** |
+| **Phase 8+ — Data, Memory, Feature Modules** | ⬜ Not started (18 placeholder routes exist) |
 
-> Note: `ROADMAP.md`, `CHANGELOG.md` and `memory/PRD.md` in this repo were last written at the end of
-> Phase 2 and describe Phases 3–6 as "not started". **They are stale.** This README reflects the
-> actual state of the code. Trust this file.
+> **Phase 7 is an architecture refactor and is the next work.** It replaces the sidebar shell with the
+> single workspace model. It is a **composition change** — no design tokens change, no backend changes,
+> and **no components are deleted**. See [MIGRATION-PLAN.md](./docs/architecture/MIGRATION-PLAN.md).
+
+> Note: `ROADMAP.md`, `CHANGELOG.md` and `memory/PRD.md` were stale (Phase-2 era) and were
+> **refreshed on 2026-08-06** alongside the architecture change. They are now consistent with this
+> file. If they ever disagree again, this README wins and the others should be corrected.
 
 ### Long-term roadmap (summary)
 
@@ -128,8 +154,10 @@ phases fill in.
    browser `webkitSpeechRecognition` API, so it works in Chrome/Edge and fails gracefully elsewhere.
 6. **The user is hardcoded as "Tony Stark" / "TS"** across `AppLayout.tsx` and `Home.tsx`. There is
    no auth and no user model.
-7. **`ROADMAP.md`, `CHANGELOG.md` and `memory/PRD.md` are stale** (Phase-2 era). Update them as part
-   of the next milestone.
+7. **The running shell is the v1 sidebar layout**, which the adopted architecture supersedes. Code
+   and architecture docs will disagree until Phase 7 lands — **the docs are the target**, the code is
+   the current state. `ROADMAP.md`, `CHANGELOG.md` and `memory/PRD.md` were refreshed 2026-08-06 and
+   are current.
 8. **The backend depends on `emergentintegrations`**, a platform-specific package that is **not on
    PyPI**. See [Setup Instructions](#setup-instructions) for how to run without it.
 9. **`.emergent/` contains Emergent platform cron scaffolding**, not application code. It is
@@ -156,6 +184,35 @@ phases fill in.
 
 JARVIS is a **two-tier web application** today, designed so a desktop shell can wrap it later
 without rewriting anything.
+
+### Target architecture (v2 — single workspace)
+
+**This is what you should build toward.** Full specification in
+[`docs/architecture/`](./docs/architecture/).
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│  TOP BAR — the ONLY navigation surface                                │
+│  ◆ Jarvis   Home  Chat  Voice  Notes  Calendar  Tasks  Files          │
+│                    AI Apps  Automations              ⌘K   ◐  ⚙  (TS)  │
+├───────────────────────────────────────────────────────────────────────┤
+│                       ADAPTIVE WORKSPACE                              │
+│   ┌─────────────────────────────────────────────────────────────┐    │
+│   │       CONVERSATION / PRIMARY SURFACE (always present)       │    │
+│   └─────────────────────────────────────────────────────────────┘    │
+│   ┌──────────┐ ┌──────────┐ ┌──────────┐   ← widgets expand IN PLACE │
+│   │  Widget  │ │  Widget  │ │  Widget  │     (peek → open → focused) │
+│   └──────────┘ └──────────┘ └──────────┘                             │
+├───────────────────────────────────────────────────────────────────────┤
+│  STATUS BAR                                                           │
+└───────────────────────────────────────────────────────────────────────┘
+
+        Everything technical  →  Settings → Developer Mode (hidden by default)
+```
+
+### Current architecture (v1 — sidebar shell, superseded)
+
+This is what the code does **today**. It still runs; it is being replaced in Phase 7.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -197,8 +254,15 @@ the most important architectural rule in the project:
 | **Pages / App** | `src/pages/`, `src/app/` | Route entry points and shell composition. Thin — they compose, they don't implement. |
 
 The design system itself is tiered: `primitives` (atoms) → `composites` (molecules) →
-`data` (tables/lists) → `patterns` (shell organisms) → `layouts` (AppShell).
+`data` (tables/lists) → **`widgets`** → `patterns` (shell organisms) → `layouts` (AppShell).
 **Lower tiers never import higher tiers.**
+
+> **`widgets/` is new in v2 and does not exist yet.** It sits between `data` and `patterns`: widgets
+> compose composites and data components, and are composed by the workspace. A widget has three
+> states (`peek` / `open` / `focused`), expands in place, and renders both in the workspace grid and
+> inline in a conversation. Contract: [WIDGET-SYSTEM.md](./docs/architecture/WIDGET-SYSTEM.md).
+> The prototype already exists as a local helper in `features/home/HomeWidgets.tsx` — **promote it,
+> don't rewrite it.**
 
 ### Backend
 
@@ -328,8 +392,18 @@ Jarvis-Frontend/
 │   └── PRD.md                      ← product requirements (⚠️ stale)
 │
 ├── docs/
+│   ├── architecture/               ← ★ THE ARCHITECTURE AUTHORITY (read first)
+│   │   ├── README.md               ← index + one-minute summary
+│   │   ├── UI-ARCHITECTURE.md      ← single workspace philosophy & layout
+│   │   ├── NAVIGATION.md           ← taxonomy, v1→v2 map, new module registry
+│   │   ├── WIDGET-SYSTEM.md        ← widget contract & states
+│   │   ├── DEVELOPER-MODE.md       ← what gets hidden, and how
+│   │   ├── COMPONENT-PLAN.md       ← disposition of all 48 components
+│   │   ├── MIGRATION-PLAN.md       ← staged execution path
+│   │   ├── STARTUP-ANIMATION.md    ← ⬜ pending required milestone
+│   │   └── adr/0001-single-workspace-architecture.md
 │   └── jarvis-design-system/
-│       ├── JARVIS-DESIGN-SYSTEM.md ← 40-section design spec (THE design authority)
+│       ├── JARVIS-DESIGN-SYSTEM.md ← 40-section spec (VISUAL language authority)
 │       └── design-tokens.json      ← machine-readable tokens
 │
 ├── backend/
@@ -371,7 +445,9 @@ Jarvis-Frontend/
         ├── features/
         │   ├── chat/     ChatPage.tsx · chatStore.ts · Markdown.tsx
         │   ├── home/     HeroOrb.tsx · ActivityTimeline.tsx · HomeWidgets.tsx · Waveform.tsx
-        │   └── voice/    VoiceOverlay.tsx · voiceHistory.ts
+        │   ├── voice/    VoiceOverlay.tsx · voiceHistory.ts
+        │   ├── startup/  ⬜ v2 — StartupSequence, EnergyWave, ParticleField (NOT BUILT)
+        │   └── developer/⬜ v2 — DeveloperShell, useDeveloperMode (NOT BUILT)
         │
         ├── lib/
         │   ├── chatClient.ts       ← SSE streaming client
@@ -392,7 +468,8 @@ Jarvis-Frontend/
             ├── primitives/         24 atoms
             ├── composites/         8 molecules
             ├── data/               Table · DataGrid · List · TreeView
-            ├── patterns/           11 shell organisms
+            ├── widgets/            ⬜ v2 — Widget · WidgetGrid · useWidgetState (NOT BUILT)
+            ├── patterns/           11 shell organisms (5 demoted in v2)
             ├── layouts/AppShell/
             └── __tests__/smoke.test.tsx
 ```
@@ -545,6 +622,38 @@ Jarvis-Frontend/
 
 ## Pending Features
 
+### 🏛️ Architecture — Single Workspace (Phase 7, **next**)
+- ⬜ **Module registry rewrite** — `surface` / `audience`, 10-item cap, flat (no groups)
+- ⬜ **Registry invariant test** — enforces ≤10 items, audience rule, forbidden-vocabulary ban
+- ⬜ **Permanent redirects** for all v1 routes
+- ⬜ **`TopNav`** — the flat top-bar navigation strip
+- ⬜ **`AppShell` rework** — `sidebar` prop optional + deprecated
+- ⬜ **`AppLayout` rewrite** — remove Sidebar, Dock, Breadcrumb from the composition
+- ⬜ **`NotificationCenter`** — Drawer → Popover
+- ⬜ **`WorkspaceContainer`** — remove the right context panel
+- ⬜ **Widget system** — `Widget`, `WidgetGrid`, `useWidgetState`, peek/open/focused
+- ⬜ **Conversation-placed widgets** — same component renders inline in a thread
+- ⬜ **Domain widgets** — Recent Chats, Notes, Tasks, Calendar, Files, Automations, AI Apps,
+  System Status, AI Suggestions
+- ⬜ **Notes surface** (`/notes`) — currently a dead link in `Dock`
+- ⬜ **Real sectioned Settings** — General · Jarvis · Connections · Advanced · About
+- ⬜ **Developer Mode** — gating, `DeveloperShell`, lazy-loaded tool chunk
+- ⬜ **User-facing counterparts** — "Things Jarvis remembers", "Response style", Connections, Activity
+
+### 🎬 Startup Animation (Phase 7-D) — **REQUIRED MILESTONE**
+- ⬜ **Cinematic boot sequence** — 10 beats, 2–4s, continuous, no perceptible stage boundaries
+- ⬜ **Beats:** black → ambient glow → logo fade → soft pulse → energy wave → particles →
+  glass materialises → widgets cascade → Voice Orb activates → seamless handoff to Home
+- ⬜ **Non-blocking** — app initializes underneath; the animation is a curtain, never a gate
+- ⬜ **60 FPS**, transform/opacity only, ≤20KB gzipped lazy chunk
+- ⬜ **Reduced-motion variant** honouring the OS setting (≤600ms, cross-fade only)
+- ⬜ **Optional audio** — ambient hum, activation tone, interface chime; **silent by default**
+- ⬜ **Once per session**, fast-forward on any keypress or click
+
+> **The frontend is NOT feature-complete until this ships.** No splash text, no "Loading…", no
+> progress bars, no fake percentages, no branding flourish. Full spec and definition of done:
+> [STARTUP-ANIMATION.md](./docs/architecture/STARTUP-ANIMATION.md).
+
 ### AI & Intelligence
 - ⬜ **AI Agent Integration** — agent runtime, task delegation, multi-step execution
 - ⬜ **Agent monitoring UI** (`/agents` route is a placeholder)
@@ -628,7 +737,7 @@ Jarvis-Frontend/
 - ⬜ **CI/CD pipeline** — no workflows exist
 - ⬜ **Performance Optimization** — route-level code splitting, budgets
 - ⬜ **Production Build** hardening — CSP, security headers, env validation
-- ⬜ **Documentation refresh** — `ROADMAP.md` / `CHANGELOG.md` / `PRD.md` are stale
+- ⬜ **Architecture conformance test** — the registry invariant suite (Phase 7-A)
 
 ---
 
@@ -653,30 +762,49 @@ Streaming thread, markdown, composer, abort/retry, local persistence.
 **Done:** overlay, Web Speech STT, live transcript, history, chat handoff.
 **Remaining:** wake word, TTS output, barge-in, intent chips, server-side STT fallback.
 
-### ⬜ Phase 7 — Data & Identity Foundation *(recommended next — see [next milestone](#suggested-next-milestone))*
-Database layer, authentication, user model, server-side chat persistence, API client abstraction,
-replace mock dashboard data with real endpoints.
+### 📐 Phase 7 — Single Workspace Architecture *(specified, next — see [next milestone](#suggested-next-milestone))*
+The architecture refactor. Composition change only: no token changes, no backend changes, no deleted
+components. Staged path in [MIGRATION-PLAN.md](./docs/architecture/MIGRATION-PLAN.md).
 
-### ⬜ Phase 8 — Memory & Knowledge
-Vector store, embeddings, semantic recall, knowledge graph, universal search.
+- **7-A — Shell & navigation:** registry rewrite + invariant test, redirects, `TopNav`,
+  `AppShell`/`AppLayout` rework, NotificationCenter → Popover, drop the right panel, add `/notes`.
+- **7-B — Widget system:** `Widget` / `WidgetGrid` / `useWidgetState`, core + remaining domain
+  widgets, conversation placement, Home converted to conversation + grid.
+- **7-C — Settings & Developer Mode:** sectioned Settings, user-facing counterparts, `useDeveloperMode`,
+  `DeveloperShell`, demoted surfaces re-homed, lazy-loaded developer chunk.
+- **7-D — Startup animation:** ⬜ **required milestone** — cinematic boot sequence, reduced-motion
+  variant, optional audio, seamless handoff. [Spec](./docs/architecture/STARTUP-ANIMATION.md).
 
-### ⬜ Phase 9 — Productivity Modules
-Projects, Tasks, Notes, Calendar, Files — the `/workspace` module group.
+### ⬜ Phase 8 — Data & Identity Foundation
+Decouple the backend from `emergentintegrations`, database layer, authentication, real user model,
+server-side chat persistence, API client abstraction, replace mock dashboard data with real endpoints.
 
-### ⬜ Phase 10 — Integrations Platform
-Google Workspace, Microsoft 365, Email, plugin system, MCP integration.
+### ⬜ Phase 9 — Memory & Knowledge
+Vector store, embeddings, semantic recall — surfaced to users only as **"Things Jarvis remembers"**.
+Knowledge graph and raw inspection tools stay in **Developer Mode**. Universal search behind `⌘K`.
 
-### ⬜ Phase 11 — Agents & Automation
-Agent runtime, tool calling, automation engine, multi-step task execution, agent monitoring.
+### ⬜ Phase 10 — Productivity Surfaces
+Notes, Tasks, Calendar, Files as real widgets and focused surfaces. Projects becomes a grouping
+*inside* them — not a navigation destination.
 
-### ⬜ Phase 12 — Multimodal
-Vision, OCR, screen understanding, file/image attachments, TTS.
+### ⬜ Phase 11 — AI Apps & Integrations
+Google Workspace, Microsoft 365, Email → **Settings → Connections**. Plugin system and MCP →
+user-facing as **AI Apps**, raw registries in Developer Mode.
 
-### ⬜ Phase 13 — Desktop Application
-Electron/Tauri shell, functional window controls, system tray, OS automation, local LLM support.
+### ⬜ Phase 12 — Agents & Automations
+Agent runtime, tool calling, automation engine, multi-step execution. Surfaced as **AI Apps** and
+**Automations**; the tool registry stays in Developer Mode.
 
-### ⬜ Phase 14 — Hardening
-Full test coverage, E2E, CI/CD, performance budgets, i18n, telemetry, security review.
+### ⬜ Phase 13 — Multimodal
+TTS, wake word, vision, OCR, screen understanding, chat attachments.
+
+### ⬜ Phase 14 — Desktop Application
+Electron/Tauri shell (where `WindowFrame` and `Dock` find their real home), functional window
+controls, system tray, OS automation, local LLM support.
+
+### ⬜ Phase 15 — Hardening
+Full test coverage, E2E, CI/CD, route-level code splitting, performance budgets, i18n, telemetry,
+security review.
 
 ### ⬜ Final Release — v1.0
 Installer, packaging, code signing, auto-update, mobile companion, production deployment.
@@ -688,15 +816,38 @@ Installer, packaging, code signing, auto-update, mobile companion, production de
 > **This section exists so you do not have to read the codebase to be productive.**
 > Read it fully before making changes. It encodes decisions that are not obvious from the code.
 
-### Start here — the five files that explain everything
+### Start here — read these before touching anything
 
-| Read this | To understand |
-|---|---|
-| `frontend/src/app/modules.tsx` | The module registry. Sidebar, routes and command palette are all generated from this one array. **Adding a module starts here.** |
-| `frontend/src/app/AppLayout.tsx` | The persistent shell and every global overlay. |
-| `frontend/src/design-system/index.ts` | The complete public component API in one file. |
-| `frontend/src/styles/tokens.css` | Every colour/space/radius/motion value in the system. |
-| `docs/jarvis-design-system/JARVIS-DESIGN-SYSTEM.md` | Why the design looks the way it does. |
+**Architecture first. The code you are about to read reflects the OLD shell.**
+
+| # | Read this | To understand |
+|---|---|---|
+| 1 | **`docs/architecture/README.md`** | ★ The current architecture in one minute. **Non-negotiable first read.** |
+| 2 | **`docs/architecture/UI-ARCHITECTURE.md`** | The single-workspace philosophy, the ten principles, the abstraction rule |
+| 3 | **`docs/architecture/NAVIGATION.md`** | What is user-facing vs. internal; the v1→v2 map; the new registry |
+| 4 | **`docs/architecture/COMPONENT-PLAN.md`** | What to keep, modify, demote, and build |
+| 5 | `frontend/src/design-system/index.ts` | The complete public component API in one file (48 components) |
+| 6 | `frontend/src/app/modules.tsx` | The module registry — **currently v1 shape**, rewritten in Phase 7-A |
+| 7 | `frontend/src/app/AppLayout.tsx` | The persistent shell — **currently the v1 sidebar composition** |
+| 8 | `frontend/src/styles/tokens.css` | Every colour/space/radius/motion value in the system |
+| 9 | `docs/jarvis-design-system/JARVIS-DESIGN-SYSTEM.md` | Why the design looks the way it does (**visual** authority) |
+
+> **Which document wins?** `docs/architecture/` governs **layout, navigation and information
+> architecture**. `docs/jarvis-design-system/` governs **visual language** — color, type, motion,
+> spacing, tokens. Where they disagree on structure, architecture wins.
+
+### The new philosophy in ten lines
+
+1. AI-first interface — the conversation is the centre of gravity.
+2. Single workspace — one frame; content changes inside it, the frame does not.
+3. Minimal navigation — a thin top strip, not a structural element.
+4. **No sidebars, no drawers, no dock, no hidden nav panels.**
+5. No hidden complexity — if a user has to find it, it is badly placed.
+6. Technical concepts live in Developer Mode, off and invisible by default.
+7. End users interact with features, not infrastructure.
+8. Widgets expand **in place** instead of opening panels.
+9. It should feel like an operating system, not a website with a menu.
+10. Simplicity beats completeness.
 
 ### Why certain decisions were made
 
@@ -742,9 +893,21 @@ tiny seams so swapping to an API is a two-file change.
 The UI contract was built before the APIs. The numbers are placeholders that make the layout real.
 **Do not delete the widgets — wire them up.**
 
-**Why are `ROADMAP.md` / `CHANGELOG.md` / `PRD.md` stale?**
-They were written at the Phase-2 checkpoint and not maintained through Phases 3–6. This README
-supersedes them. Refresh them as part of the next milestone.
+**Why does the code contradict `docs/architecture/`?**
+Because the architecture was decided before it was implemented — deliberately. The docs are the
+**target state**; `src/app/` is the **current state**. Phase 7 closes the gap. When they disagree,
+build toward the docs and follow [MIGRATION-PLAN.md](./docs/architecture/MIGRATION-PLAN.md); do not
+"fix" the docs to match the old code.
+
+**Why refactor the shell before wiring real data (Phase 7 before Phase 8)?**
+Phase 8 integrates APIs into surfaces. Rebuilding those surfaces afterwards means doing the
+integration twice. Move the walls while the rooms are still empty.
+
+**Why is the sidebar being removed when it works?**
+It works, and it is conventional — that is the problem. A nav rail reads as "web dashboard", and it
+was exposing our architecture (Memory, Knowledge, Plugins, Diagnostics) to end users as peers of
+Tasks and Calendar. Full reasoning, including the alternatives rejected, in
+[ADR-0001](./docs/architecture/adr/0001-single-workspace-architecture.md).
 
 ### Existing coding conventions
 
@@ -891,31 +1054,68 @@ satisfy the same `UseSpeechRecognition` interface so `VoiceOverlay` never change
 
 ### Future expansion strategy
 
-**To add a new feature module — the exact recipe:**
+**To add a new feature — the v2 recipe:**
 
-1. Add the entry to `frontend/src/app/modules.tsx` (or set `ready: true` on the existing one).
-2. Create `frontend/src/features/<module>/` with the domain components.
-3. Create `frontend/src/pages/<Module>.tsx` wrapping content in
-   `<WorkspaceContainer header={<PageHeader …/>}>`.
-4. Add the route in `frontend/src/App.tsx` and add its path to the exclusion filter.
+0. **Decide the audience first.** Is this a *feature* (a user would ask for it by name) or
+   *infrastructure* (it only exists because of how we built things)? Infrastructure goes to
+   Developer Mode and stops here.
+1. **Build the widget, not the page.** Create `frontend/src/features/<domain>/<Domain>Widget.tsx` on
+   top of the `Widget` shell. It must work in `peek`, `open` and `focused`, and with
+   `placement="conversation"`.
+2. Add the registry entry in `frontend/src/app/modules.tsx` with the correct `surface` and
+   `audience`. **If it is `surface: 'topbar'`, check the ≤10 cap first** — something may need to move.
+3. Name it for the outcome, not the system. Check the
+   [vocabulary table](./docs/architecture/UI-ARCHITECTURE.md#vocabulary-rules).
+4. Add the route in `frontend/src/App.tsx` for the focused state (deep-linkable), wrapping content in
+   `<WorkspaceContainer header={<PageHeader …/>}>` — **without a `rightPanel`.**
 5. Build **only** from `design-system` exports. If a needed primitive doesn't exist, add it to the
    design system — never inline a bespoke one in the feature.
-6. Add `data-testid` to interactive elements.
-7. Add a Storybook story for any new design-system component.
-8. Update this README's status tables.
+6. `EmptyState` when empty, `Skeleton` when loading. Never an empty box, never a spinner in the grid.
+7. Add `data-testid` to interactive elements.
+8. Add a Storybook story covering all three widget states.
+9. Update this README's status tables and the checklists.
+
+Full checklist: [WIDGET-SYSTEM.md §8](./docs/architecture/WIDGET-SYSTEM.md#8-widget-authoring-checklist).
 
 **To add a design-system component:**
-Pick the right tier (primitive → composite → data → pattern → layout), create
+Pick the right tier (primitive → composite → data → **widget** → pattern → layout), create
 `design-system/<tier>/<Name>/<Name>.tsx`, use `cva()` + `cn()` + tokens, wrap Radix if it has
 overlay/focus behaviour, export it from `index.ts`, add a story, add it to `DesignShowcase`.
+Then run the review checklist in
+[COMPONENT-PLAN.md §9](./docs/architecture/COMPONENT-PLAN.md#9-review-checklist-for-any-new-component).
 
 **Before you write any new component, check `design-system/index.ts`.** 48 components already exist.
 The most common mistake an agent makes on this codebase is rebuilding something that is already there.
 
 ### ⚠️ Explicit instructions for AI assistants
 
+**Architecture conformance — these are absolute:**
+
+- **NEVER add a sidebar, nav rail, right context panel, sliding drawer, bottom dock, or hidden
+  navigation panel** to the primary user experience. Not "just for this module". Not "because
+  there's space at 1440px". If you think you need one, you need a widget that expands in place.
+- **NEVER exceed 10 items in the top bar.** An eleventh means something else is not user-facing.
+- **NEVER expose technical vocabulary to users** — no *vector database*, *embedding*, *knowledge
+  graph*, *prompt*, *MCP*, *tool registry*, *context window*, *provider*, *API key*, *plugin*. Those
+  words belong in Developer Mode only. Check
+  [the vocabulary table](./docs/architecture/UI-ARCHITECTURE.md#vocabulary-rules) before naming
+  anything.
+- **NEVER open a modal, drawer or side panel for a routine action.** Expand in place. Modals are for
+  destructive confirmations only.
+- **NEVER surface a Developer Mode tool to a user who has not enabled it** — not even greyed out,
+  not even as a teaser.
+- **ALWAYS ask "what does the ordinary user see instead?"** when building anything technical.
+  "Nothing" is a valid and common answer.
+- **DO NOT delete `Sidebar`, `Dock`, `Drawer`, `Breadcrumb`, `SearchOverlay` or `WindowFrame`.**
+  They are demoted, not removed — they have real homes in Developer Mode, mobile and the desktop shell.
+
+**General:**
+
 - **DO NOT rewrite the existing architecture unless absolutely necessary.** The three-layer
-  separation, the module registry, and the token pipeline are load-bearing.
+  separation, the module-registry pattern, and the token pipeline are load-bearing.
+  *(The one sanctioned exception is the shell **composition** change specified in
+  [MIGRATION-PLAN.md](./docs/architecture/MIGRATION-PLAN.md) — follow that plan, don't improvise
+  your own.)*
 - **ALWAYS extend existing components before creating new ones.** Add a variant or a prop rather
   than a near-duplicate component.
 - **REUSE design tokens.** Never introduce a hardcoded colour, spacing value, radius, shadow or
@@ -939,6 +1139,21 @@ The most common mistake an agent makes on this codebase is rebuilding something 
 ---
 
 ## Development Rules
+
+**Rule 0 — Architecture conformance.** Every UI change must satisfy all of these, or it does not
+merge:
+
+- [ ] No sidebar, drawer, dock, or second navigation surface in the primary UX
+- [ ] Top bar still has ≤ 10 items, all `audience: 'everyone'`
+- [ ] No technical vocabulary in any user-visible string
+- [ ] Nothing opens a panel where it could expand in place
+- [ ] No Developer Mode surface is visible when Developer Mode is off
+- [ ] The conversation is still reachable in one interaction
+
+*The registry invariant test (Phase 7-A) enforces items 2 and 3 automatically. The rest are review
+items. If you find yourself arguing for an exception, re-read
+[ADR-0001](./docs/architecture/adr/0001-single-workspace-architecture.md) — the alternatives were
+already considered and rejected.*
 
 1. **Keep code modular.** One component, one responsibility, one file.
 2. **Keep components reusable.** Anything generic belongs in `design-system/`; anything
@@ -1117,30 +1332,35 @@ credentials, and OS/editor cruft.
 
 ## Suggested Next Milestone
 
-**Phase 7 — Data & Identity Foundation.**
+**Phase 7 — Single Workspace Architecture.**
 
-The UI is far ahead of the data layer, and that gap is now the bottleneck: every dashboard number is
-fake, chat history dies with the browser profile, and there is no user. Closing it unblocks
-essentially every remaining module.
+The architecture refactor comes before the data work, and the ordering matters: Phase 8 wires real
+APIs into surfaces, and rebuilding those surfaces afterwards would mean doing the integration twice.
+Refactor the shell while the data is still mock and cheap to move.
 
-Recommended order:
+Execute [MIGRATION-PLAN.md](./docs/architecture/MIGRATION-PLAN.md) stage by stage — each stage is
+independently shippable and ends green on `yarn lint && yarn typecheck && yarn test && yarn build`:
 
-1. **Decouple the backend from Emergent** — replace `emergentintegrations` with a direct Anthropic
-   SDK call so the project runs anywhere. *(Smallest task, biggest portability win.)*
-2. **Wire up MongoDB** with `motor` (already in `requirements.txt`).
-3. **Add authentication** — JWT with `python-jose` + `passlib` (already installed); replace the
-   hardcoded "Tony Stark" with a real user model.
-4. **Move chat persistence server-side** — `/api/chat/sessions` CRUD; change only `chatStore.ts` on
-   the client.
-5. **Build the API client layer** — `frontend/src/lib/api/` with a shared fetch wrapper, and add
-   TanStack Query for server state.
-6. **Replace mock data** — `/api/dashboard/vitals`, `/api/notifications`, `/api/activity`.
-7. **Refresh `ROADMAP.md`, `CHANGELOG.md`, `memory/PRD.md`** to match reality.
+1. **Stage 1 — Registry & routing.** Rewrite `modules.tsx` with `surface`/`audience`, add the
+   invariant test, add redirects. No visual change; ships safely on its own.
+   *(Write the invariant test in this stage — it is what stops the architecture drifting back.)*
+2. **Stage 2 — The new shell.** `TopNav`, `AppShell`/`AppLayout` rework, NotificationCenter →
+   Popover, drop the right panel. The only stage with a large visual diff.
+3. **Stage 3 — Widget system.** Promote the `Widget` prototype, build `WidgetGrid`, convert Home,
+   enable conversation placement.
+4. **Stage 4 — Settings & Developer Mode.** Sectioned Settings, user-facing counterparts, gating,
+   re-home the demoted surfaces.
+5. **Stage 5 — Startup animation.** Last, so it animates the real shell geometry.
 
-After Phase 7, the first real feature module (**Tasks** or **Notes** — smallest surface, exercises
-the full stack end to end) validates the module recipe before the larger modules land.
+**Then Phase 8 — Data & Identity Foundation**, in this order: decouple the backend from
+`emergentintegrations` (smallest task, biggest portability win) → MongoDB via `motor` → JWT auth and
+a real user model → server-side chat persistence → `src/lib/api/` + TanStack Query → replace mock
+data. After that, **Notes** or **Tasks** as the first fully real widget validates the whole stack
+end to end.
 
 ---
 
-*Last updated: 2026-08-06 · JARVIS is under active development. This README supersedes
-`ROADMAP.md`, `CHANGELOG.md` and `memory/PRD.md` wherever they disagree.*
+*Last updated: 2026-08-06 · JARVIS is under active development.*
+*`ROADMAP.md`, `CHANGELOG.md` and `memory/PRD.md` are current as of this date and consistent with
+this file. `docs/architecture/` is the authority on layout, navigation and information architecture;
+`docs/jarvis-design-system/` is the authority on visual language.*

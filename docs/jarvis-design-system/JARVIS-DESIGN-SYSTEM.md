@@ -15,6 +15,33 @@
 
 ---
 
+> ## ⚠️ Amendment — 2026-08-06: Single Workspace Architecture
+>
+> This document remains **the authority on visual language** — color, typography, motion, spacing,
+> elevation, tokens, and component styling. All of that is unchanged and still binding.
+>
+> **It is no longer the authority on layout, navigation, or information architecture.** Those now live
+> in [`../architecture/`](../architecture/), starting with
+> [UI-ARCHITECTURE.md](../architecture/UI-ARCHITECTURE.md). Where this document describes a
+> sidebar-based shell, right context panels, drawers, a dock, or breadcrumb navigation, **the
+> architecture documents supersede it.**
+>
+> In short: JARVIS is now a **single workspace** — Top Bar → Adaptive Workspace → Status Bar. No
+> sidebars, no drawers, no dock. Widgets expand in place. All technical concepts (memory internals,
+> knowledge graph, vector store, embeddings, prompts, MCP, tool registry) are hidden behind
+> **Developer Mode**.
+>
+> This amendment *extends* §1's fourth principle — "Content is the interface. Navigation recedes;
+> content advances" — to its logical conclusion: navigation recedes to a single flat top bar, and
+> conversation advances to the centre.
+>
+> Sections describing shell composition (sidebar, dock, drawers, right panels, breadcrumbs) should be
+> read as **the component library's capabilities**, not as the prescribed application layout. Those
+> components are preserved for Developer Mode, mobile, and the future desktop shell — see
+> [COMPONENT-PLAN.md](../architecture/COMPONENT-PLAN.md).
+
+---
+
 ## 1. Design Philosophy
 
 Jarvis behaves like an intelligent operator standing quietly beside the user. The interface should feel like *presence, not decoration*.

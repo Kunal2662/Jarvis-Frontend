@@ -2,8 +2,18 @@
 
 Production foundation for every JARVIS screen: design tokens, theme engine, core UI library, window shell, and the Liquid Glass foundation.
 
-> Single source of truth for design decisions: [`../docs/jarvis-design-system/`](../docs/jarvis-design-system/).
-> This package **implements** that spec — it does not redefine it.
+> ### ⚠️ Architecture change — 2026-08-06
+> JARVIS now follows a **single workspace architecture**: Top Bar → Adaptive Workspace → Status Bar.
+> **No sidebars, no drawers, no dock, no hidden nav panels.** Widgets expand in place. All technical
+> concepts live behind Developer Mode.
+>
+> **Read [`../docs/architecture/`](../docs/architecture/) before writing UI code.** The shell
+> described below (`patterns/` window shell, sidebar composition) is the **v1 layout** and is being
+> replaced in Phase 7 — the *components* are preserved, the *composition* changes.
+
+> Authority on **visual language** (tokens, color, type, motion): [`../docs/jarvis-design-system/`](../docs/jarvis-design-system/).
+> Authority on **layout, navigation and information architecture**: [`../docs/architecture/`](../docs/architecture/).
+> This package **implements** both — it does not redefine them.
 
 ## Stack
 - **Vite 6** + **React 18** + **TypeScript 5.6**

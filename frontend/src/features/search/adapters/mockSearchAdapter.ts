@@ -1,7 +1,8 @@
 import type { SearchResult, SearchResultGroup, SearchService } from '../searchService';
 import { mockAutomationService } from '../../automations/adapters/mockAutomationAdapter';
+import { mockKnowledgeService } from '../../knowledge/adapters/mockKnowledgeAdapter';
 import { loadMessages } from '../../chat/chatStore';
-import { settingsModules, topBarModules } from '../../../app/modules';
+import { liveSecondaryModules, settingsModules, topBarModules } from '../../../app/modules';
 
 /**
  * Frontend client-side mock adapter for Universal Search. Does simple, honest
@@ -29,7 +30,7 @@ function matches(haystack: string, term: string): boolean {
 
 /** Live + reachable nav destinations (mirrors the CommandPalette "Go to" group). */
 function searchApp(term: string): SearchResult[] {
-  const destinations = [...topBarModules, ...settingsModules];
+  const destinations = [...topBarModules, ...liveSecondaryModules, ...settingsModules];
   return destinations
     .filter((m) => matches(m.label, term))
     .map((m) => ({
@@ -57,6 +58,26 @@ async function searchAutomations(term: string): Promise<SearchResult[]> {
     }));
 }
 
+/** The Knowledge mock document set (Step 10) — search by title/snippet/tags.
+ *  Matches how searchAutomations searches name/description: honest substring
+ *  filtering over real (local/mock) data, no ranking. */
+async function searchKnowledge(term: string): Promise<SearchResult[]> {
+  const items = await mockKnowledgeService.getKnowledgeItems();
+  return items
+    .filter(
+      (k) =>
+        matches(k.title, term) || matches(k.snippet, term) || k.tags.some((tag) => matches(tag, term)),
+    )
+    .map((k) => ({
+      id: `knowledge-${k.id}`,
+      category: 'knowledge' as const,
+      title: k.title,
+      description: k.snippet,
+      path: '/knowledge',
+      navState: { knowledgeId: k.id },
+    }));
+}
+
 /** This browser's own recent Chat messages (localStorage, Step 7) — real data,
  *  not fabricated history. Only the user's own messages are searched. */
 function searchChat(term: string): SearchResult[] {
@@ -77,6 +98,7 @@ const LABELS: Record<SearchResult['category'], string> = {
   app: 'Pages',
   automation: 'Automations',
   chat: 'Chat',
+  knowledge: 'Knowledge',
 };
 
 export const mockSearchService: SearchService = {
@@ -89,6 +111,7 @@ export const mockSearchService: SearchService = {
     if (!term) return [];
 
     const automation = await searchAutomations(term);
+    const knowledge = await searchKnowledge(term);
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
     const app = searchApp(term);
     const chat = searchChat(term);
@@ -96,6 +119,7 @@ export const mockSearchService: SearchService = {
     const allGroups: SearchResultGroup[] = [
       { category: 'app', label: LABELS.app, results: app },
       { category: 'automation', label: LABELS.automation, results: automation },
+      { category: 'knowledge', label: LABELS.knowledge, results: knowledge },
       { category: 'chat', label: LABELS.chat, results: chat },
     ];
     const groups = allGroups.filter((g) => g.results.length > 0);

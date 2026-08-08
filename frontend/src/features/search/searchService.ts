@@ -15,13 +15,16 @@
 /**
  * Domains this frontend can actually search today. Kept deliberately small —
  * only surfaces with real, existing data are represented:
- *  - 'app'        → live nav destinations (Home/Chat/Voice/Automations/Settings)
+ *  - 'app'        → live nav destinations (Home/Chat/Voice/Automations/Settings/Knowledge/Intelligence)
  *  - 'automation' → the Automations mock dataset (Step 8)
  *  - 'chat'       → this browser's local recent Chat messages (Step 7)
- * Do not add a category (e.g. Knowledge, Files, Memory, Smart Home) until a
- * real frontend surface/dataset backs it.
+ *  - 'knowledge'  → the Knowledge mock document set (Step 10)
+ * Do not add a category (e.g. Files, Memory, Smart Home) until a real
+ * frontend surface/dataset backs it. Intelligence insights are deliberately
+ * NOT a search category — they are Core-computed display content, not
+ * searchable named entities.
  */
-export type SearchResultCategory = 'app' | 'automation' | 'chat';
+export type SearchResultCategory = 'app' | 'automation' | 'chat' | 'knowledge';
 
 export interface SearchResult {
   id: string;

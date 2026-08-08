@@ -1,6 +1,6 @@
 # JARVIS Frontend Implementation Roadmap
 
-**Snapshot:** 2026-08-08  
+**Snapshot:** 2026-08-09  
 **Current frontend:** `Jarvis-Frontend-main`  
 **Status model:** 🟢 Complete · 🟡 Active · 🔴 Not Started · ⚠️ Blocked/verification pending
 
@@ -69,9 +69,22 @@ but no Core endpoint was invented — see
 `docs/FRONTEND_PROGRESS.md` Step 9.
 
 ### 7. Knowledge + Intelligence
-**Status:** 🔴 Not Started
+**Status:** 🟢 Complete (frontend Step 10) — local/static mock adapters; real Core integration pending
 
-Consume real Core contracts. Do not recreate Search or Intelligence logic in React.
+Two read-only browse/consume surfaces (`features/knowledge/`,
+`features/intelligence/`) implemented against pluggable `KnowledgeService` /
+`IntelligenceService` adapters, mirroring the Chat/Voice/Automations/Search
+seams. Knowledge lists/browses a local mock document set (title, snippet,
+source type, tags, updated date) with a detail drawer; Intelligence displays
+a static, pre-seeded list of Core-style insight objects with no client-side
+scoring/ranking. Both are `surface: 'secondary'` + `status: 'live'` in
+`app/modules.tsx` — reachable via the command palette's "Go to" group, not
+the primary nav (which stays exactly Home/Chat/Voice/Automations). Core
+adapter stubs exist (`adapters/coreKnowledgeAdapter.ts`,
+`adapters/coreIntelligenceAdapter.ts`, both `ready: false`) but no Core
+endpoints were invented — see `docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md` and
+`docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md`. Details in
+`docs/FRONTEND_PROGRESS.md` Step 10.
 
 ---
 

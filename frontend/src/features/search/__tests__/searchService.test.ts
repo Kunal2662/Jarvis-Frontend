@@ -88,4 +88,33 @@ describe('search service seam', () => {
     const groups = await mockSearchService.search('zzzznomatchxyz');
     expect(groups).toEqual([]);
   });
+
+  it('a query matching only a knowledge document title returns a categorized "knowledge" group (Step 10)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('checklist');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('knowledge');
+    expect(groups[0].label).toBe('Knowledge');
+    expect(groups[0].results.map((r) => r.title)).toContain('Workshop Safety Checklist');
+    // Every result carries a real navigable path with a deep-link to the item.
+    expect(groups[0].results[0].path).toBe('/knowledge');
+    expect(groups[0].results[0].navState).toEqual({ knowledgeId: 'know-1' });
+  });
+
+  it('a query matching only a knowledge document tag returns a categorized "knowledge" group', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('procurement');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('knowledge');
+    expect(groups[0].results.map((r) => r.title)).toContain('Supplier Contacts — Titanium Alloy');
+  });
+
+  it('a query matching the Knowledge nav destination returns a categorized "app" group', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('knowledge');
+    const appGroup = groups.find((g) => g.category === 'app');
+    expect(appGroup?.results.some((r) => r.title === 'Knowledge' && r.path === '/knowledge')).toBe(true);
+  });
 });

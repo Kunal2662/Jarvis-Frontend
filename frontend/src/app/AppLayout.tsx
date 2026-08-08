@@ -28,7 +28,7 @@ import {
   type NotificationGroup,
   type TopNavItem,
 } from '../design-system';
-import { secondaryModules, settingsModules, topBarModules } from './modules';
+import { comingSoonModules, liveSecondaryModules, settingsModules, topBarModules } from './modules';
 import { VoiceOverlay } from '../features/voice/VoiceOverlay';
 import { UniversalSearch } from '../features/search/UniversalSearch';
 
@@ -83,8 +83,10 @@ export function AppLayout() {
   const commandGroups: CommandGroup[] = useMemo(
     () => [
       {
+        // Primary nav + real secondary pages (e.g. Knowledge, Intelligence) —
+        // everything here is a live, built surface today.
         heading: 'Go to',
-        items: [...topBarModules, ...settingsModules].map((m) => ({
+        items: [...topBarModules, ...liveSecondaryModules, ...settingsModules].map((m) => ({
           id: m.path,
           label: m.label,
           icon: <m.icon />,
@@ -95,7 +97,7 @@ export function AppLayout() {
         // Future surfaces — Core contract not yet wired to the frontend.
         // Clearly marked so nothing here looks production-ready.
         heading: 'Coming soon',
-        items: secondaryModules.map((m) => ({
+        items: comingSoonModules.map((m) => ({
           id: m.path,
           label: m.label,
           icon: <m.icon />,

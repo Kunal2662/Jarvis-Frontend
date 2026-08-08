@@ -1,9 +1,11 @@
 import {
+  BookOpen,
   Bot,
   Calendar,
   Component,
   FolderOpen,
   LayoutDashboard,
+  Lightbulb,
   type LucideIcon,
   MessageSquare,
   Mic,
@@ -17,9 +19,18 @@ import {
 /**
  * Where a surface is reachable from.
  * - 'topbar'    → the lean PRIMARY nav strip (current / live surfaces only)
- * - 'secondary' → future / placeholder surfaces (reachable via ⌘K, clearly marked)
+ * - 'secondary' → surfaces reached via ⌘K instead of the primary strip. Can be
+ *                 either 'planned' (future, clearly marked "Soon") or 'live'
+ *                 (a real page — e.g. Knowledge/Intelligence, Step 10) once
+ *                 built; see the `liveSecondaryModules`/`comingSoonModules`
+ *                 selectors below for how the two are told apart downstream.
  * - 'settings'  → top-bar right cluster (gear)
  * - 'developer' → Developer Mode only
+ *
+ * 'contextual' is reserved for a future context-sensitive surface placement
+ * (e.g. surfaced inline next to relevant content rather than in a fixed nav
+ * location). No selector, layout, or component currently reads this value —
+ * it is an unused placeholder in the type union today, not a wired surface.
  */
 export type Surface = 'topbar' | 'secondary' | 'settings' | 'developer' | 'contextual';
 
@@ -72,6 +83,10 @@ export const modules: ModuleDef[] = [
   { path: '/voice', label: 'Voice', icon: Mic, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M10', ready: true, action: 'voice' },
   { path: '/automations', label: 'Automations', icon: Workflow, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M7', ready: true, redirectFrom: ['/automation', '/browser'] },
 
+  // ── SECONDARY — live surfaces (⌘K "Go to", not the primary strip) ──
+  { path: '/knowledge', label: 'Knowledge', icon: BookOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10A', ready: true },
+  { path: '/intelligence', label: 'Intelligence', icon: Lightbulb, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10B', ready: true },
+
   // ── SECONDARY — future / placeholder surfaces (⌘K, clearly marked "Soon") ──
   { path: '/notes', label: 'Notes', icon: StickyNote, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
   { path: '/tasks', label: 'Tasks', icon: SquareCheck, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11', redirectFrom: ['/projects'] },
@@ -80,7 +95,7 @@ export const modules: ModuleDef[] = [
   { path: '/apps', label: 'AI Apps', icon: Sparkles, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M10.5', redirectFrom: ['/plugins'] },
 
   // ── Settings (right cluster, not the main strip) ──
-  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/memory', '/knowledge', '/google', '/microsoft', '/diagnostics', '/performance'] },
+  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/memory', '/google', '/microsoft', '/diagnostics', '/performance'] },
 
   // ── Developer Mode (hidden by default) ──
   { path: '/design', label: 'Design System', icon: Component, surface: 'developer', audience: 'developer', status: 'live', ready: true },
@@ -89,8 +104,13 @@ export const modules: ModuleDef[] = [
 // ── Derived selectors (never hand-written) ──
 /** The lean primary top-bar strip. */
 export const topBarModules = modules.filter((m) => m.surface === 'topbar');
-/** Future/placeholder surfaces — palette + clearly-marked secondary area. */
+/** All non-primary surfaces reachable via ⌘K — both live and planned. */
 export const secondaryModules = modules.filter((m) => m.surface === 'secondary');
+/** Secondary surfaces that are real, built pages (e.g. Knowledge, Intelligence)
+ *  — surfaced in the command palette's "Go to" group, not "Coming soon". */
+export const liveSecondaryModules = secondaryModules.filter((m) => m.status === 'live');
+/** Secondary surfaces still pending Core integration — the "Coming soon" group. */
+export const comingSoonModules = secondaryModules.filter((m) => m.status === 'planned');
 export const settingsModules = modules.filter((m) => m.surface === 'settings');
 export const developerModules = modules.filter((m) => m.surface === 'developer');
 

@@ -1,6 +1,6 @@
 # JARVIS Frontend — Current Progress & Continuation State
 
-**Snapshot:** 2026-08-08  
+**Snapshot:** 2026-08-09  
 **Project:** `Jarvis-Frontend-main`  
 **Purpose:** Portable, current-state handoff for future Emergent workspaces/accounts or other frontend coding agents.
 
@@ -342,6 +342,99 @@ Core Search (real ranking, a full cross-domain corpus spanning
 Knowledge/Files/Memory/server-side Automations/Chat history) is pending a
 verified Core search contract (see `docs/CORE_SEARCH_CONTRACT_REQUIRED.md`).
 
+### Step 10 — Knowledge + Intelligence
+**Status: COMPLETE — frontend using local/static mock adapters; Core integration pending**
+
+Architecture (both features):
+
+```text
+KnowledgePage / IntelligencePage
+  ↓
+KnowledgeService / IntelligenceService
+  ↓
+Mock adapter (local/static) / Future Core adapter
+```
+
+Knowledge and Intelligence are combined into one frontend step per the
+roadmap (Phase 3, item 7), but shipped as two independent feature
+directories (`features/knowledge/`, `features/intelligence/`) with their own
+service seams — they do not share an adapter or a page. Neither is a
+primary-nav item: both are `surface: 'secondary'` + `status: 'live'` in
+`app/modules.tsx` (flipped from the placeholder `'planned'` state, the same
+transition Notes/Tasks/Calendar/Files/AI Apps will eventually get), reachable
+via `/knowledge` and `/intelligence` and surfaced in the command palette's
+"Go to" group (not "Coming soon", since they are real, built pages). The
+primary nav strip is unchanged: **Home · Chat · Voice · Automations**, no
+sidebar, no 5th item.
+
+**Knowledge** (`features/knowledge/`) — a **read-only browse/consume**
+surface, since Core owns ingestion (M10A):
+
+- `KnowledgeItem` / `KnowledgeSourceType` (`'chat-memory' | 'file' | 'note' | 'web'`) types, following the existing `UIStatus`/`AsyncState<T>` convention
+- `knowledgeService.ts` seam (`getKnowledgeItems`, `getKnowledgeItem` — deliberately no create/upload/edit/delete method), selectable via `VITE_KNOWLEDGE_BACKEND` (`mock` default, `core` stub)
+- `adapters/mockKnowledgeAdapter.ts` — 6 seeded documents spanning all four source types (a file safety checklist, a chat-memory standup recap, a research note, a web architecture primer, a supplier contact file, and a home-preferences note), each with title/snippet/full content/tags/updated date
+- `adapters/coreKnowledgeAdapter.ts` — intentionally unimplemented stub (`ready: false`) that throws/returns `CoreKnowledgeContractUnavailableError`; no Core endpoint invented
+- `KnowledgePage.tsx` — stat cards (total + per-source counts), a local text filter plus a source-type filter (both simple client-side `Array.filter` over the already-fetched list — not a ranking/search engine), a document list built from the existing `List`/`ListRow` data component (a better fit for a document browser than a card grid — reused rather than duplicated), and a click-through read-only detail drawer (`KnowledgeDetailDrawer.tsx`, full content + tags + updated date, no edit/delete actions)
+- All async states (loading/ready/empty/error/unavailable) rendered through the existing `ModulePage` + `StateView` + `Widget` pattern; no new visual language
+- `docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md` added, mirroring the existing Search/Automations contract-requirement docs
+
+**Intelligence** (`features/intelligence/`) — a **read-only display/consume**
+surface, since Core owns computing insights (M10B):
+
+- `Insight` type (`category: 'automation' | 'usage' | 'system' | 'suggestion'`, `tone: 'info' | 'suggestion' | 'warning'`), following the existing `UIStatus` convention
+- `intelligenceService.ts` seam (`getInsights` only — no dismiss/acknowledge/create method), selectable via `VITE_INTELLIGENCE_BACKEND` (`mock` default, `core` stub)
+- `adapters/mockIntelligenceAdapter.ts` — a **static, hand-seeded list of 5 pre-computed insight objects** (e.g. "3 automations haven't run in 2 weeks", "Frequently discussed topic this week: suit diagnostics", "Suggested automation based on your Chat activity") returned unchanged on every call; no scoring, ranking, or NLP is performed client-side — per the roadmap's "do not recreate ... Intelligence logic in React"
+- `adapters/coreIntelligenceAdapter.ts` — intentionally unimplemented stub (`ready: false`) that throws/returns `CoreIntelligenceContractUnavailableError`; no Core endpoint invented
+- `IntelligencePage.tsx` — stat cards (total + per-tone counts) and a read-only card grid (`InsightCard.tsx`) showing title/description/category/tone (icon + text, never color alone) and an optional "View" navigation link to a related page (e.g. Automations); no dismiss/edit/create controls anywhere in the UI
+- All async states (loading/ready/empty/error/unavailable) rendered through the existing `ModulePage` + `StateView` pattern
+- `docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md` added, documenting (among other things) that a real Core contract would also need to define dismiss/acknowledge and subscribe-to-new-insights behavior, neither of which is implemented client-side today
+
+**Optional light-touch Search integration:** Knowledge documents were
+registered as one additional searchable category (`'knowledge'`) inside the
+existing Universal Search mock adapter (`features/search/adapters/mockSearchAdapter.ts`),
+consistent with how it already searches automations/pages/local chat —
+honest substring filtering over title/snippet/tags, no ranking. Selecting a
+knowledge result deep-links to `/knowledge` and opens that item's detail
+drawer via `location.state.knowledgeId` (mirrors the existing Automations
+deep-link pattern from Step 9). **Intelligence insights were deliberately
+NOT added to Universal Search** — insights are Core-computed display content,
+not searchable named entities, per the task scope for this step.
+
+**Navigation registry note (Step 10 follow-up on Step 9's module registry):**
+Adding a *live* secondary surface exposed a gap in the Step 1–9 module
+registry — `secondaryModules` previously only ever meant "future placeholder,
+always `planned`," so `AppLayout.tsx`'s command palette always routed every
+secondary module into the "Coming soon" group. Two new derived selectors
+were added to `app/modules.tsx` — `liveSecondaryModules` (real, built
+secondary pages) and `comingSoonModules` (still-`planned` secondary
+placeholders) — and `AppLayout.tsx`'s command palette now puts
+`liveSecondaryModules` in the "Go to" group alongside the primary nav and
+Settings, while `comingSoonModules` keeps the "Coming soon" heading. This is
+additive: `secondaryModules` itself is unchanged and still exists as the
+union of both. `app/__tests__/modules.test.ts`'s invariant test was updated
+to match (previously asserted *every* secondary module must be `planned`;
+now asserts planned ones stay honest placeholders and live ones are real,
+ready pages) — this is the same "flip planned → live" transition Automations
+went through in Step 8, just for a `secondary`-surface module instead of a
+`topbar` one.
+
+**`Surface` type note:** the module registry's `Surface` union has included
+an unused `'contextual'` value since before this step. It was inspected and
+confirmed genuinely unused — no selector in `modules.tsx`, no consumer in
+`AppLayout.tsx`, `CommandPalette`, or anywhere else in the frontend reads or
+branches on it (grepped the full `frontend/src` tree). It has been left as
+declared but is now documented in `modules.tsx` as a reserved-but-unwired
+placeholder for a possible future context-sensitive placement, so a later
+agent does not need to re-investigate it from scratch.
+
+**Both Knowledge and Intelligence are mock/local to this frontend session
+only.** No knowledge document is actually ingested from any real source, and
+no insight is actually computed from live signals — the insight list is
+static seed data. Real ingestion, indexing, and computed intelligence remain
+owned by JARVIS Core and are pending verified Core contracts (see
+`docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md` and
+`docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md`).
+
 ---
 
 ## 4. Current Architecture Pattern
@@ -430,14 +523,32 @@ Important implemented areas in this checkpoint include:
 - `features/search/UniversalSearch.tsx`
 - `features/search/searchService.ts`
 - `features/search/searchHistory.ts`
-- `features/search/adapters/mockSearchAdapter.ts`
+- `features/search/adapters/mockSearchAdapter.ts` (now also searches Knowledge — Step 10)
 - `features/search/adapters/coreSearchAdapter.ts`
 - `features/search/__tests__/`
 - `design-system/patterns/SearchOverlay/SearchOverlay.tsx` (pre-existing shell; now wired, plus a small additive `inputProps` passthrough)
 
+### Knowledge
+
+- `features/knowledge/KnowledgePage.tsx`
+- `features/knowledge/knowledgeService.ts`
+- `features/knowledge/adapters/mockKnowledgeAdapter.ts`
+- `features/knowledge/adapters/coreKnowledgeAdapter.ts`
+- `features/knowledge/KnowledgeItemRow.tsx`, `KnowledgeDetailDrawer.tsx`, `KnowledgeSourceBadge.tsx`, `knowledgeFormat.ts`
+- `features/knowledge/__tests__/`
+
+### Intelligence
+
+- `features/intelligence/IntelligencePage.tsx`
+- `features/intelligence/intelligenceService.ts`
+- `features/intelligence/adapters/mockIntelligenceAdapter.ts`
+- `features/intelligence/adapters/coreIntelligenceAdapter.ts`
+- `features/intelligence/InsightCard.tsx`, `intelligenceFormat.ts`
+- `features/intelligence/__tests__/`
+
 ### Navigation
 
-- `app/modules.tsx`
+- `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
 - `app/AppLayout.tsx`
 - `design-system/patterns/TopNav/`
 
@@ -445,13 +556,21 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–9 were green:
+The latest reported frontend gates for the completed Steps 1–10 were green:
 
-- TypeScript/typecheck: **PASS**
-- Vitest: **PASS** — 87/87 tests across the full suite (all Step 0–8 tests still pass unchanged; 23 new for Universal Search: mock adapter categorized/grouped results per source — automations/pages/local chat — blank-query and no-results handling, core-adapter-not-ready, idle/loading/empty/error/unavailable async states, grouped-result rendering, click-to-navigate with `navState` + overlay close, arrow-key/Enter roving keyboard navigation, the Voice result opening `onOpenVoice` instead of navigating, and routing/nav invariants including the topbar icon opening the new overlay while `⌘K` keeps opening the Command Palette)
-- Lint on changed files: **PASS**
-- Production build: **PASS**
-- Desktop visual verification was performed against the running dev server (search icon → overlay → categorized results → click-through to an automation's detail drawer via deep link, and a "Voice" result correctly opening the real VoiceOverlay instead of a placeholder route)
+- TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
+- Vitest: **PASS** — 127/127 tests across 20 files (all 87 Step 0–9 tests still pass unchanged, plus 40 new for Step 10):
+  - `features/knowledge/__tests__/knowledgeService.test.ts` (7): mock adapter defaults, core-adapter-not-ready + rejection, seeded items cover all 4 source types with every required field, get-by-id + not-found rejection, and an explicit assertion that no create/update/delete method exists on the service
+  - `features/knowledge/__tests__/KnowledgePage.test.tsx` (7): loading/empty/error+retry/unavailable async states, full list rendering, click-through to the read-only detail drawer, and the local text filter narrowing the list without any extra service call
+  - `features/knowledge/__tests__/routing.test.tsx` (4): `/knowledge` registered as a live secondary module, not a 5th primary-nav item, renders the real page (not the placeholder), and the primary nav/no-sidebar invariant
+  - `features/intelligence/__tests__/intelligenceService.test.ts` (5): mock adapter defaults, core-adapter-not-ready + rejection, the static seed list returning identical content on every call (no client-side computation), and an explicit assertion that no dismiss/acknowledge/create method exists
+  - `features/intelligence/__tests__/IntelligencePage.test.tsx` (7): loading/empty/error+retry/unavailable async states, full list rendering with tone conveyed by icon+text, an explicit assertion that no dismiss/edit/delete control exists anywhere in the UI, and a related-path link navigating to the linked page
+  - `features/intelligence/__tests__/routing.test.tsx` (4): `/intelligence` registered as a live secondary module, not a 5th primary-nav item, renders the real page, and the primary nav/no-sidebar invariant
+  - `features/search/__tests__/searchService.test.ts` (+3): Knowledge documents are now searchable by title and by tag as a categorized "knowledge" group with a working deep-link `navState`, and the Knowledge nav destination still resolves via the "app" category
+  - `app/__tests__/modules.test.ts` (updated, net +3): the old "every secondary module must be planned" invariant was split into "planned secondary modules stay honest placeholders" + "live secondary modules are real, ready pages" + "secondary is exactly the union of the two", to correctly express that Knowledge/Intelligence are now live `secondary`-surface modules
+  - Note: on this development machine, running the full suite with Vitest's default parallel worker pool produced intermittent timeout flakes in unrelated, pre-existing tests (`AutomationsPage.test.tsx`, `automations/__tests__/routing.test.tsx`) under CPU contention; every test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`, and each flaking file also passes in isolation. This is a local resource-contention artifact, not a code regression.
+- Lint on changed/new files: **PASS** (zero errors, zero warnings after fixing one `react-hooks/exhaustive-deps` warning caught during review)
+- Production build: **PASS** (`tsc -b && vite build`)
 
 There is a known unrelated/pre-existing Storybook lint issue reported during development in:
 
@@ -471,7 +590,7 @@ These are the next frontend product steps. They should be implemented **one at a
 |---:|---|---|
 | 8 | Automations frontend | 🟢 Complete (mock adapter; Core integration pending) |
 | 9 | Universal Search frontend | 🟢 Complete (client-side mock adapter; Core integration pending) |
-| 10 | Knowledge + Intelligence frontend | 🔴 Not Started |
+| 10 | Knowledge + Intelligence frontend | 🟢 Complete (local/static mock adapters; Core integration pending) |
 | 11 | AI Apps + Integrations frontend | 🔴 Not Started |
 | 12 | Notes frontend | 🔴 Placeholder |
 | 13 | Tasks + Projects frontend | 🔴 Placeholder |
@@ -503,7 +622,8 @@ The following are intentionally pending real JARVIS Core contracts:
 - Voice → real Core voice/conversation path
 - Home → real Core status/data
 - Search → real Core Search
-- Knowledge → real Core Knowledge/Intelligence
+- Knowledge → real Core Knowledge (frontend currently ships a local/static mock adapter only — see `docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md`)
+- Intelligence → real Core Intelligence Layer (frontend currently ships a static, pre-seeded mock adapter only, no client-side scoring — see `docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md`)
 - AI Apps → real MCP/integration capabilities
 - Automations → real execution/scheduling/persistence (frontend currently ships a mock/local adapter only — see `docs/CORE_AUTOMATIONS_CONTRACT_REQUIRED.md`)
 - Smart Home → real Smart Home services/connectors
@@ -538,7 +658,9 @@ Do not redo:
 - Automations foundation
 - AutomationService seam
 - Universal Search foundation (`SearchOverlay` wiring, `SearchService` seam)
-- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay, not a 5th nav item)
+- Knowledge foundation (`KnowledgeService` seam, read-only browse/detail UI)
+- Intelligence foundation (`IntelligenceService` seam, read-only display UI)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence stay secondary/command-palette surfaces — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -555,10 +677,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–9.
+8. Do not redo Steps 0–10.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Step 10 — Knowledge + Intelligence**.
+11. Continue from **Step 11 — AI Apps + Integrations**.
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -571,9 +693,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 9 — Universal Search
+**LAST COMPLETED FRONTEND STEP:** Step 10 — Knowledge + Intelligence
 
-**NEXT FRONTEND STEP:** Step 10 — Knowledge + Intelligence
+**NEXT FRONTEND STEP:** Step 11 — AI Apps + Integrations
 
 **CURRENT PRODUCT STATE:**
 
@@ -586,10 +708,12 @@ A new Emergent workspace/account or coding agent should:
 - Voice: complete using local browser speech adapter
 - Automations: complete as a full frontend surface using an in-memory mock adapter (Core execution/scheduling/persistence pending)
 - Universal Search: complete as a cross-cutting overlay surface using a client-side mock adapter (Core search integration pending)
+- Knowledge: complete as a read-only browse/detail frontend surface using a local/static mock adapter (Core ingestion/indexing integration pending)
+- Intelligence: complete as a read-only display frontend surface using a static, pre-seeded mock adapter (Core Intelligence Layer integration pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START STEP 10 automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START STEP 11 automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

@@ -26,11 +26,11 @@ The frontend is intended to become the modern presentation layer for JARVIS Core
 
 Per the authoritative continuation state in `docs/FRONTEND_PROGRESS.md` (§11):
 
-**LAST COMPLETED FRONTEND STEP:** Step 9 — Universal Search (frontend overlay UI complete using a client-side mock adapter — client-side filtering over the Automations mock dataset, live nav destinations, and local recent Chat messages; real Core search integration pending — see `docs/CORE_SEARCH_CONTRACT_REQUIRED.md`).
+**LAST COMPLETED FRONTEND STEP:** Step 10 — Knowledge + Intelligence (two read-only browse/consume surfaces, `/knowledge` and `/intelligence`, each using a local/static mock adapter — Knowledge lists a mock document set with a detail drawer; Intelligence displays a static, pre-seeded list of insight objects with no client-side scoring; real Core integration pending — see `docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md` and `docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md`).
 
-**NEXT FRONTEND STEP:** Step 10 — Knowledge + Intelligence.
+**NEXT FRONTEND STEP:** Step 11 — AI Apps + Integrations.
 
-Do not start Step 10 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
+Do not start Step 11 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
 
 ## Golden rules
 
@@ -175,9 +175,9 @@ The planned order begins:
 4. Chat → AgentOrchestrator — frontend seam done, Core integration pending
 5. Voice → AgentOrchestrator — frontend seam done, Core integration pending
 6. Automations — frontend done (mock adapter), Core integration pending
-7. Search — frontend done (mock adapter), Core integration pending ← just completed (Step 9)
-8. Knowledge + Intelligence ← next
-9. AI Apps + Integrations
+7. Search — frontend done (mock adapter), Core integration pending
+8. Knowledge + Intelligence — frontend done (local/static mock adapters), Core integration pending ← just completed (Step 10)
+9. AI Apps + Integrations ← next
 10. M11 Productivity
 11. M12 Smart Home
 

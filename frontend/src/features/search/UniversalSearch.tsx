@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, MessageSquare, Search as SearchIcon, Workflow, type LucideIcon } from 'lucide-react';
+import { BookOpen, Clock, MessageSquare, Search as SearchIcon, Workflow, type LucideIcon } from 'lucide-react';
 import { Kbd, SearchOverlay, StateView, type UIStatus } from '../../design-system';
 import { moduleByPath } from '../../app/modules';
 import { getSearchService, type SearchResult, type SearchResultGroup } from './searchService';
@@ -20,6 +20,7 @@ const DEBOUNCE_MS = 250;
 function resultIcon(result: SearchResult): LucideIcon {
   if (result.category === 'automation') return Workflow;
   if (result.category === 'chat') return MessageSquare;
+  if (result.category === 'knowledge') return BookOpen;
   return moduleByPath(result.path)?.icon ?? SearchIcon;
 }
 
@@ -146,7 +147,7 @@ export function UniversalSearch({ open, onOpenChange, onOpenVoice }: UniversalSe
       onOpenChange={onOpenChange}
       value={query}
       onValueChange={setQuery}
-      placeholder="Search pages, automations, chat…"
+      placeholder="Search pages, automations, chat, and knowledge…"
       inputProps={{
         role: 'combobox',
         'aria-expanded': totalCount > 0,
@@ -209,7 +210,7 @@ export function UniversalSearch({ open, onOpenChange, onOpenVoice }: UniversalSe
               </>
             ) : (
               <p className="px-1 py-6 text-center text-body-sm text-content-tertiary">
-                Search pages, automations, and your recent chat messages.
+                Search pages, automations, and your recent chat messages, plus your knowledge base.
               </p>
             )}
           </div>

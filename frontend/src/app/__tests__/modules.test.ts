@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { modules, secondaryModules, topBarModules } from '../modules';
+import { comingSoonModules, liveSecondaryModules, modules, secondaryModules, topBarModules } from '../modules';
 
 /**
  * These invariants enforce the single-workspace navigation architecture AND the
@@ -41,12 +41,28 @@ describe('module registry invariants', () => {
     }
   });
 
-  it('secondary (future) surfaces are placeholders for everyone, never live', () => {
+  it('every secondary surface remains reachable by everyone', () => {
     for (const m of secondaryModules) {
-      expect(m.status, `${m.label} is secondary and must be 'planned'`).toBe('planned');
       expect(m.audience, `${m.label} must remain reachable by everyone`).toBe('everyone');
+    }
+  });
+
+  it('planned secondary surfaces are honest placeholders (not claiming a real page)', () => {
+    for (const m of comingSoonModules) {
+      expect(m.status, `${m.label} is in comingSoonModules and must be 'planned'`).toBe('planned');
       expect(m.ready, `${m.label} placeholder must not claim a real page`).toBeFalsy();
     }
+  });
+
+  it('live secondary surfaces (e.g. Knowledge, Intelligence) are real, ready pages', () => {
+    for (const m of liveSecondaryModules) {
+      expect(m.status, `${m.label} is in liveSecondaryModules and must be 'live'`).toBe('live');
+      expect(m.ready, `${m.label} is live and must have a real built page`).toBeTruthy();
+    }
+  });
+
+  it('secondary is exactly the union of live and coming-soon secondary modules', () => {
+    expect(liveSecondaryModules.length + comingSoonModules.length).toBe(secondaryModules.length);
   });
 
   it('has no duplicate paths', () => {
@@ -69,7 +85,7 @@ describe('module registry invariants', () => {
   it('all canonical routes still resolve to a module (no broken deep links)', () => {
     const canonical = [
       '/', '/chat', '/voice', '/notes', '/calendar', '/tasks',
-      '/files', '/apps', '/automations', '/settings', '/design',
+      '/files', '/apps', '/automations', '/knowledge', '/intelligence', '/settings', '/design',
     ];
     const paths = new Set(modules.map((m) => m.path));
     for (const p of canonical) {

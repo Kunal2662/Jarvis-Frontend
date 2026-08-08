@@ -4,10 +4,12 @@ import { modules } from './app/modules';
 import { Home } from './pages/Home';
 import { ChatPage } from './features/chat/ChatPage';
 import { AutomationsPage } from './features/automations/AutomationsPage';
+import { KnowledgePage } from './features/knowledge/KnowledgePage';
+import { IntelligencePage } from './features/intelligence/IntelligencePage';
 import { DesignShowcase } from './pages/DesignShowcase';
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 
-const PAGES = ['/', '/chat', '/automations', '/design'];
+const PAGES = ['/', '/chat', '/automations', '/knowledge', '/intelligence', '/design'];
 
 export function App() {
   return (
@@ -16,6 +18,8 @@ export function App() {
         <Route index element={<Home />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/automations" element={<AutomationsPage />} />
+        <Route path="/knowledge" element={<KnowledgePage />} />
+        <Route path="/intelligence" element={<IntelligencePage />} />
         <Route path="/design" element={<DesignShowcase />} />
 
         {/* Placeholder surfaces (Home/Chat/Voice widgets ship in later phases). */}

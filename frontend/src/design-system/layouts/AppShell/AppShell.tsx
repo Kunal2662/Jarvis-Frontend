@@ -2,7 +2,12 @@ import type { ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 
 export interface AppShellProps {
-  sidebar: ReactNode;
+  /**
+   * @deprecated Single-workspace architecture removes the primary sidebar
+   * (docs/architecture/UI-ARCHITECTURE.md). Retained (optional) only for
+   * Developer Mode and genuine edge cases. Not composed in the default shell.
+   */
+  sidebar?: ReactNode;
   topbar?: ReactNode;
   statusbar?: ReactNode;
   children: ReactNode;

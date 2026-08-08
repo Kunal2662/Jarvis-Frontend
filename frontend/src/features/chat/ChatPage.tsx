@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { ArrowUp, Copy, Mic, Paperclip, RotateCcw, Sparkles, Square, Trash2 } from 'lucide-react';
+import { useLocation, useOutletContext } from 'react-router-dom';
+import { ArrowDown, ArrowUp, Check, Copy, Mic, Paperclip, RotateCcw, Sparkles, Square, Trash2 } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -8,10 +8,11 @@ import {
   IconButton,
   PageHeader,
   SimpleTooltip,
+  useReducedMotion,
   VoiceOrb,
   WorkspaceContainer,
 } from '../../design-system';
-import { streamChat, type ChatTurn } from '../../lib/chatClient';
+import { getChatService, type ChatLifecycle, type ChatTurn } from './chatService';
 import { clearMessages, loadMessages, saveMessages, type ChatMessage } from './chatStore';
 import { Markdown } from './Markdown';
 
@@ -25,56 +26,115 @@ const suggestions = [
 let idCounter = 0;
 const uid = () => `${Date.now()}-${idCounter++}`;
 
+// The Chat UI depends only on this seam, never on a concrete backend.
+const chat = getChatService();
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <SimpleTooltip label={copied ? 'Copied' : 'Copy'}>
+      <IconButton
+        label="Copy response"
+        size="sm"
+        onClick={() => {
+          navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+      </IconButton>
+    </SimpleTooltip>
+  );
+}
+
 export function ChatPage() {
   const location = useLocation();
+  const { openVoice } = (useOutletContext<{ openVoice?: () => void }>() ?? {}) as { openVoice?: () => void };
+  const reduced = useReducedMotion();
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessages());
   const [input, setInput] = useState('');
-  const [streaming, setStreaming] = useState(false);
+  const [status, setStatus] = useState<ChatLifecycle>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const isBusy = status === 'sending' || status === 'streaming' || status === 'reconnecting';
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
+  const scrollToBottom = useCallback(
+    (smooth = true) => {
+      const el = scrollRef.current;
+      if (!el) return;
+      try {
+        el.scrollTo({ top: el.scrollHeight, behavior: reduced || !smooth ? 'auto' : 'smooth' });
+      } catch {
+        el.scrollTop = el.scrollHeight;
+      }
+    },
+    [reduced],
+  );
+
+  const onThreadScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+  };
+
   useEffect(() => saveMessages(messages), [messages]);
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
+    if (atBottom) scrollToBottom();
+  }, [messages, atBottom, scrollToBottom]);
 
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || streaming) return;
+      if (!trimmed || isBusy) return;
       setInput('');
 
       const userMsg: ChatMessage = { id: uid(), role: 'user', content: trimmed };
       const assistantMsg: ChatMessage = { id: uid(), role: 'assistant', content: '' };
       const base = [...messages, userMsg];
       setMessages([...base, assistantMsg]);
-      setStreaming(true);
+      setErrorMsg(null);
+      setStatus('sending');
 
       const controller = new AbortController();
       abortRef.current = controller;
       const turns: ChatTurn[] = base.map((m) => ({ role: m.role, content: m.content }));
 
-      await streamChat(
+      const result = await chat.sendMessage(
         turns,
         {
+          onStatus: setStatus,
           onDelta: (delta) =>
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantMsg.id ? { ...m, content: m.content + delta } : m)),
             ),
-          onError: (err) =>
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsg.id ? { ...m, content: `⚠️ ${err}. Please try again.` } : m,
-              ),
-            ),
+          onError: (err) => setErrorMsg(err),
         },
         controller.signal,
       );
-      setStreaming(false);
+
+      // Adapter already emits the final onStatus; keep local state authoritative.
+      setStatus(
+        result.outcome === 'cancelled'
+          ? 'cancelled'
+          : result.outcome === 'error'
+            ? 'error'
+            : 'completed',
+      );
+      if (result.outcome === 'error' || result.outcome === 'cancelled') {
+        // Drop an empty assistant bubble so it never shows a stuck "thinking" state.
+        setMessages((prev) =>
+          prev[prev.length - 1]?.id === assistantMsg.id && !prev[prev.length - 1]?.content
+            ? prev.slice(0, -1)
+            : prev,
+        );
+      }
       abortRef.current = null;
     },
-    [messages, streaming],
+    [messages, isBusy],
   );
 
   // Auto-send a prompt passed from the command palette / voice.
@@ -90,7 +150,7 @@ export function ChatPage() {
 
   const stop = () => {
     abortRef.current?.abort();
-    setStreaming(false);
+    setStatus('cancelled');
   };
 
   const retry = () => {
@@ -135,7 +195,16 @@ export function ChatPage() {
       }
     >
       <div className="mx-auto flex h-full max-w-3xl flex-col">
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-4" data-testid="chat-thread">
+        <div
+          ref={scrollRef}
+          onScroll={onThreadScroll}
+          role="log"
+          aria-label="Conversation with Jarvis"
+          aria-live="polite"
+          aria-busy={isBusy}
+          className="min-h-0 flex-1 overflow-y-auto pb-4"
+          data-testid="chat-thread"
+        >
           {messages.length === 0 ? (
             <EmptyState
               icon={<Sparkles />}
@@ -160,14 +229,14 @@ export function ChatPage() {
               {messages.map((m, i) =>
                 m.role === 'user' ? (
                   <div key={m.id} className="flex justify-end">
-                    <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-4 py-2.5 text-body text-content">
+                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-accent-soft px-4 py-2.5 text-body text-content">
                       {m.content}
                     </div>
                   </div>
                 ) : (
                   <div key={m.id} className="group flex gap-3">
                     <div className="mt-0.5 shrink-0">
-                      <VoiceOrb size={28} state={streaming && i === messages.length - 1 ? 'thinking' : 'idle'} />
+                      <VoiceOrb size={28} state={isBusy && i === messages.length - 1 ? 'thinking' : 'idle'} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-center gap-2">
@@ -182,16 +251,12 @@ export function ChatPage() {
                           Jarvis is thinking…
                         </div>
                       )}
-                      {!streaming && m.content && (
-                        <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                          <SimpleTooltip label="Copy">
-                            <IconButton label="Copy" size="sm" onClick={() => navigator.clipboard.writeText(m.content)}>
-                              <Copy className="size-3.5" />
-                            </IconButton>
-                          </SimpleTooltip>
+                      {!isBusy && m.content && (
+                        <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                          <CopyButton text={m.content} />
                           {i === messages.length - 1 && (
                             <SimpleTooltip label="Retry">
-                              <IconButton label="Retry" size="sm" onClick={retry}>
+                              <IconButton label="Retry response" size="sm" onClick={retry}>
                                 <RotateCcw className="size-3.5" />
                               </IconButton>
                             </SimpleTooltip>
@@ -206,8 +271,50 @@ export function ChatPage() {
           )}
         </div>
 
+        {!atBottom && messages.length > 0 && (
+          <div className="pointer-events-none relative">
+            <button
+              onClick={() => {
+                setAtBottom(true);
+                scrollToBottom();
+              }}
+              data-testid="chat-jump-latest"
+              className="pointer-events-auto absolute -top-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-line bg-surface-raised px-3 py-1.5 text-caption text-content-secondary shadow-md transition-colors hover:text-content"
+            >
+              <ArrowDown className="size-3.5" /> Latest
+            </button>
+          </div>
+        )}
+
+        {(status === 'error' || status === 'cancelled') && (
+          <div
+            role="alert"
+            data-testid="chat-error"
+            className={`mb-2 flex items-center gap-3 rounded-xl border px-3 py-2 text-body-sm ${
+              status === 'error'
+                ? 'border-danger/40 bg-danger-soft text-danger'
+                : 'border-line bg-surface-subtle text-content-secondary'
+            }`}
+          >
+            <span className="flex-1">
+              {status === 'error'
+                ? `Jarvis couldn't respond${errorMsg ? `: ${errorMsg}` : '.'}`
+                : 'Generation stopped.'}
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              leftIcon={<RotateCcw className="size-3.5" />}
+              onClick={retry}
+              data-testid="chat-retry"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Composer */}
-        <div className="sticky bottom-0 pb-2 pt-2">
+        <div className="sticky bottom-16 pb-2 pt-2 md:bottom-0">
           <div className="mb-2 flex items-center gap-2">
             <Badge variant="neutral" size="sm">Memory: on</Badge>
             <Badge variant="neutral" size="sm">Workspace: default</Badge>
@@ -225,12 +332,13 @@ export function ChatPage() {
                 }
               }}
               rows={1}
+              aria-label="Message Jarvis"
               placeholder="Message Jarvis…  (⌘↵ to send)"
               data-testid="chat-input"
               className="max-h-[220px] min-h-[40px] flex-1 resize-none bg-transparent py-2 text-body text-content placeholder:text-content-tertiary outline-none"
             />
-            <IconButton label="Voice"><Mic className="size-[18px]" /></IconButton>
-            {streaming ? (
+            <IconButton label="Voice" onClick={() => openVoice?.()} data-testid="chat-voice"><Mic className="size-[18px]" /></IconButton>
+            {isBusy ? (
               <IconButton label="Stop" variant="solid" onClick={stop} data-testid="chat-stop">
                 <Square className="size-4" />
               </IconButton>

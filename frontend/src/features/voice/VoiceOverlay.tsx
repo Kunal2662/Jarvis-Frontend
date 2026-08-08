@@ -6,7 +6,7 @@ import {
   VoiceOrb,
   type VoiceState,
 } from '../../design-system';
-import { useSpeechRecognition } from '../../lib/useSpeechRecognition';
+import { useVoiceSession } from './useVoiceSession';
 import { loadVoiceHistory, pushVoiceHistory } from './voiceHistory';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,10 +18,17 @@ export interface VoiceOverlayProps {
 /** Full-screen JARVIS voice session with live transcript (Web Speech API). */
 export function VoiceOverlay({ open, onOpenChange }: VoiceOverlayProps) {
   const navigate = useNavigate();
-  const { supported, listening, transcript, interim, error, start, stop, reset } = useSpeechRecognition();
+  const { supported, listening, transcript, interim, error, start, stop, reset, status } = useVoiceSession();
   const [history, setHistory] = useState<string[]>(() => loadVoiceHistory());
 
-  const state: VoiceState = listening ? 'listening' : transcript ? 'speaking' : 'idle';
+  const state: VoiceState =
+    status === 'listening'
+      ? 'listening'
+      : status === 'processing'
+        ? 'thinking'
+        : status === 'speaking'
+          ? 'speaking'
+          : 'idle';
   const liveText = `${transcript}${interim ? ` ${interim}` : ''}`.trim();
 
   // Auto-start listening when opened (if supported).

@@ -2,6 +2,7 @@
 
 // Foundations
 export * from './lib/cn';
+export * from './lib/uiState';
 export * from './foundations/motion';
 
 // Theme engine
@@ -11,6 +12,7 @@ export * from './theme/ThemeProvider';
 export * from './hooks/useMediaQuery';
 export * from './hooks/useReducedMotion';
 export * from './hooks/useHotkey';
+export * from './hooks/useAsync';
 
 // Primitives
 export * from './primitives/Glass/Glass';
@@ -42,6 +44,8 @@ export * from './primitives/Drawer/Drawer';
 export * from './composites/Card/Card';
 export * from './composites/Card/StatCard';
 export * from './composites/EmptyState/EmptyState';
+export * from './composites/StateView/StateView';
+export * from './composites/Widget/Widget';
 export * from './composites/FormField/FormField';
 export * from './composites/Tabs/Tabs';
 export * from './composites/Breadcrumb/Breadcrumb';
@@ -57,11 +61,13 @@ export * from './data/TreeView/TreeView';
 // Patterns (window shell)
 export * from './patterns/Sidebar/Sidebar';
 export * from './patterns/TopBar/TopBar';
+export * from './patterns/TopNav/TopNav';
 export * from './patterns/StatusBar/StatusBar';
 export * from './patterns/CommandPalette/CommandPalette';
 export * from './patterns/SearchOverlay/SearchOverlay';
 export * from './patterns/NotificationCenter/NotificationCenter';
 export * from './patterns/WorkspaceContainer/WorkspaceContainer';
+export * from './patterns/ModulePage/ModulePage';
 export * from './patterns/Dock/Dock';
 export * from './patterns/QuickSettings/QuickSettings';
 export * from './patterns/WindowFrame/WindowFrame';

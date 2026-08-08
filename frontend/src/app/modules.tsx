@@ -1,67 +1,104 @@
 import {
-  Activity,
-  Blocks,
   Bot,
-  Brain,
   Calendar,
   Component,
-  FolderKanban,
   FolderOpen,
-  Gauge,
-  Globe,
   LayoutDashboard,
   type LucideIcon,
-  Mail,
   MessageSquare,
   Mic,
-  Network,
   Settings,
-  SquareCheck,
   Sparkles,
+  SquareCheck,
+  StickyNote,
   Workflow,
 } from 'lucide-react';
 
+/**
+ * Where a surface is reachable from.
+ * - 'topbar'    → the lean PRIMARY nav strip (current / live surfaces only)
+ * - 'secondary' → future / placeholder surfaces (reachable via ⌘K, clearly marked)
+ * - 'settings'  → top-bar right cluster (gear)
+ * - 'developer' → Developer Mode only
+ */
+export type Surface = 'topbar' | 'secondary' | 'settings' | 'developer' | 'contextual';
+
+/** Who is allowed to see it. 'developer' requires Developer Mode enabled. */
+export type Audience = 'everyone' | 'advanced' | 'developer';
+
+/**
+ * Honest Core-capability status for this surface (see docs/JARVIS_CORE_FRONTEND_MAPPING.md).
+ * - 'live'    → real, working frontend surface today
+ * - 'planned' → placeholder UI; Core contract not yet integrated. MUST be shown
+ *               as unfinished (never presented as production-ready).
+ */
+export type CapabilityStatus = 'live' | 'planned';
+
 export interface ModuleDef {
   path: string;
+  /** The USER-FACING name — never a system name. */
   label: string;
   icon: LucideIcon;
-  group: string;
-  /** Built pages vs. "coming soon" placeholders. */
+  surface: Surface;
+  audience: Audience;
+  /** Honest capability status — drives "Soon"/unavailable markers in the UI. */
+  status: CapabilityStatus;
+  /** Owning JARVIS Core milestone, for alignment/terminology (metadata only). */
+  core?: string;
+  /** Whether a real built page exists (vs. the shared placeholder). */
   ready?: boolean;
   badge?: string;
-  /** Special sidebar behaviour instead of navigation. */
+  /** Overlay/action instead of navigation. */
   action?: 'voice';
+  /** Old v1 paths that should redirect here. */
+  redirectFrom?: string[];
 }
 
+/**
+ * Single source of truth for navigation. A FLAT registry — no groups.
+ * `surface` + `audience` + `status` encode placement and Core-alignment;
+ * derived selectors (below) drive the top bar, command palette and settings.
+ *
+ * PRIMARY nav (surface 'topbar') is deliberately lean: only surfaces that are
+ * actually live today (M10 Chat/Voice + Home). Everything the Core has not yet
+ * wired to the frontend stays 'secondary' + 'planned' so the UI never implies a
+ * capability is production-ready. Every renamed/demoted v1 route lists itself in
+ * a `redirectFrom` so nothing 404s.
+ */
 export const modules: ModuleDef[] = [
-  { path: '/', label: 'Home', icon: LayoutDashboard, group: 'Overview', ready: true },
-  { path: '/chat', label: 'AI Chat', icon: MessageSquare, group: 'Overview', ready: true, badge: 'live' },
-  { path: '/voice', label: 'Voice', icon: Mic, group: 'Overview', ready: true, action: 'voice' },
+  // ── PRIMARY top bar — current / live surfaces only ──
+  { path: '/', label: 'Home', icon: LayoutDashboard, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M8', ready: true },
+  { path: '/chat', label: 'Chat', icon: MessageSquare, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M10', ready: true, badge: 'live', redirectFrom: ['/agents'] },
+  { path: '/voice', label: 'Voice', icon: Mic, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M10', ready: true, action: 'voice' },
+  { path: '/automations', label: 'Automations', icon: Workflow, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M7', ready: true, redirectFrom: ['/automation', '/browser'] },
 
-  { path: '/memory', label: 'Memory', icon: Brain, group: 'Intelligence' },
-  { path: '/knowledge', label: 'Knowledge', icon: Network, group: 'Intelligence' },
-  { path: '/agents', label: 'Agents', icon: Bot, group: 'Intelligence' },
-  { path: '/automation', label: 'Automation', icon: Workflow, group: 'Intelligence' },
+  // ── SECONDARY — future / placeholder surfaces (⌘K, clearly marked "Soon") ──
+  { path: '/notes', label: 'Notes', icon: StickyNote, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
+  { path: '/tasks', label: 'Tasks', icon: SquareCheck, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11', redirectFrom: ['/projects'] },
+  { path: '/calendar', label: 'Calendar', icon: Calendar, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
+  { path: '/files', label: 'Files', icon: FolderOpen, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
+  { path: '/apps', label: 'AI Apps', icon: Sparkles, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M10.5', redirectFrom: ['/plugins'] },
 
-  { path: '/projects', label: 'Projects', icon: FolderKanban, group: 'Workspace' },
-  { path: '/tasks', label: 'Tasks', icon: SquareCheck, group: 'Workspace' },
-  { path: '/calendar', label: 'Calendar', icon: Calendar, group: 'Workspace' },
-  { path: '/files', label: 'Files', icon: FolderOpen, group: 'Workspace' },
-  { path: '/browser', label: 'Browser', icon: Globe, group: 'Workspace' },
+  // ── Settings (right cluster, not the main strip) ──
+  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/memory', '/knowledge', '/google', '/microsoft', '/diagnostics', '/performance'] },
 
-  { path: '/google', label: 'Google Workspace', icon: Mail, group: 'Integrations' },
-  { path: '/microsoft', label: 'Microsoft 365', icon: Blocks, group: 'Integrations' },
-  { path: '/plugins', label: 'Plugins', icon: Blocks, group: 'Integrations' },
-
-  { path: '/diagnostics', label: 'Diagnostics', icon: Activity, group: 'System' },
-  { path: '/performance', label: 'Performance', icon: Gauge, group: 'System' },
-  { path: '/settings', label: 'Settings', icon: Settings, group: 'System' },
-  { path: '/design', label: 'Design System', icon: Component, group: 'System', ready: true },
+  // ── Developer Mode (hidden by default) ──
+  { path: '/design', label: 'Design System', icon: Component, surface: 'developer', audience: 'developer', status: 'live', ready: true },
 ];
 
-export const moduleGroups = ['Overview', 'Intelligence', 'Workspace', 'Integrations', 'System'] as const;
+// ── Derived selectors (never hand-written) ──
+/** The lean primary top-bar strip. */
+export const topBarModules = modules.filter((m) => m.surface === 'topbar');
+/** Future/placeholder surfaces — palette + clearly-marked secondary area. */
+export const secondaryModules = modules.filter((m) => m.surface === 'secondary');
+export const settingsModules = modules.filter((m) => m.surface === 'settings');
+export const developerModules = modules.filter((m) => m.surface === 'developer');
 
-export const aiIcon = Sparkles;
+/** Everything the command palette can reach, gated on Developer Mode. */
+export const commandModules = (devMode: boolean) =>
+  modules.filter((m) => devMode || m.audience !== 'developer');
+
+export const aiIcon = Bot;
 
 export function moduleByPath(path: string): ModuleDef | undefined {
   return modules.find((m) => m.path === path);

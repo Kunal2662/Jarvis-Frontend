@@ -133,6 +133,18 @@
     text-wrap: balance;
   }
 
+  /* Hide the scrollbar track/thumb while keeping the element scrollable
+     (used by the primary top-bar nav so no slider shows under it). */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
   .shimmer {
     position: relative;
     overflow: hidden;

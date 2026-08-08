@@ -1,6 +1,7 @@
 import type { SearchResult, SearchResultGroup, SearchService } from '../searchService';
 import { mockAutomationService } from '../../automations/adapters/mockAutomationAdapter';
 import { mockKnowledgeService } from '../../knowledge/adapters/mockKnowledgeAdapter';
+import { mockAiAppsService } from '../../aiApps/adapters/mockAiAppsAdapter';
 import { loadMessages } from '../../chat/chatStore';
 import { liveSecondaryModules, settingsModules, topBarModules } from '../../../app/modules';
 
@@ -78,6 +79,24 @@ async function searchKnowledge(term: string): Promise<SearchResult[]> {
     }));
 }
 
+/** The AI Apps mock catalog (Step 11) — search by name/description/provider.
+ *  Matches how searchKnowledge/searchAutomations search: honest substring
+ *  filtering over real (local/mock) data, no ranking. Covers both MCP-style
+ *  tools and connector-style entries — they share one searchable category. */
+async function searchAiApps(term: string): Promise<SearchResult[]> {
+  const apps = await mockAiAppsService.getApps();
+  return apps
+    .filter((a) => matches(a.name, term) || matches(a.description, term) || matches(a.provider, term))
+    .map((a) => ({
+      id: `ai-app-${a.id}`,
+      category: 'ai-app' as const,
+      title: a.name,
+      description: a.description,
+      path: '/apps',
+      navState: { aiAppId: a.id },
+    }));
+}
+
 /** This browser's own recent Chat messages (localStorage, Step 7) — real data,
  *  not fabricated history. Only the user's own messages are searched. */
 function searchChat(term: string): SearchResult[] {
@@ -99,6 +118,7 @@ const LABELS: Record<SearchResult['category'], string> = {
   automation: 'Automations',
   chat: 'Chat',
   knowledge: 'Knowledge',
+  'ai-app': 'AI Apps',
 };
 
 export const mockSearchService: SearchService = {
@@ -112,6 +132,7 @@ export const mockSearchService: SearchService = {
 
     const automation = await searchAutomations(term);
     const knowledge = await searchKnowledge(term);
+    const aiApp = await searchAiApps(term);
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
     const app = searchApp(term);
     const chat = searchChat(term);
@@ -120,6 +141,7 @@ export const mockSearchService: SearchService = {
       { category: 'app', label: LABELS.app, results: app },
       { category: 'automation', label: LABELS.automation, results: automation },
       { category: 'knowledge', label: LABELS.knowledge, results: knowledge },
+      { category: 'ai-app', label: LABELS['ai-app'], results: aiApp },
       { category: 'chat', label: LABELS.chat, results: chat },
     ];
     const groups = allGroups.filter((g) => g.results.length > 0);

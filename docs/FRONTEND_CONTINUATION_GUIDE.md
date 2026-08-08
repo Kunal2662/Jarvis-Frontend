@@ -26,11 +26,11 @@ The frontend is intended to become the modern presentation layer for JARVIS Core
 
 Per the authoritative continuation state in `docs/FRONTEND_PROGRESS.md` (§11):
 
-**LAST COMPLETED FRONTEND STEP:** Step 10 — Knowledge + Intelligence (two read-only browse/consume surfaces, `/knowledge` and `/intelligence`, each using a local/static mock adapter — Knowledge lists a mock document set with a detail drawer; Intelligence displays a static, pre-seeded list of insight objects with no client-side scoring; real Core integration pending — see `docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md` and `docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md`).
+**LAST COMPLETED FRONTEND STEP:** Step 11 — AI Apps + Integrations (one combined catalog+detail surface, `/apps`, using an in-memory mock adapter — MCP-style tools like Web Search/File Access/Automations Tool/Code Sandbox and third-party connectors like Gmail/Google Calendar/Microsoft 365 are represented as `AiApp` entries differentiated by a `category` field, not two separate surfaces; `setConnected` is a local mock toggle only, never a real OAuth flow; real Core MCP & Integration Platform integration pending — see `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md`).
 
-**NEXT FRONTEND STEP:** Step 11 — AI Apps + Integrations.
+**NEXT FRONTEND STEP:** Step 12 — Notes (`docs/FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 5 / M11 Productivity, item 9 — the first unstarted item in the next phase; Tasks + Projects, Calendar, and Files + Workspace, items 10–12, follow it. Verify each item's Core contract before implementing, per that roadmap's own note.).
 
-Do not start Step 11 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
+Do not start Step 12 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
 
 ## Golden rules
 
@@ -176,9 +176,9 @@ The planned order begins:
 5. Voice → AgentOrchestrator — frontend seam done, Core integration pending
 6. Automations — frontend done (mock adapter), Core integration pending
 7. Search — frontend done (mock adapter), Core integration pending
-8. Knowledge + Intelligence — frontend done (local/static mock adapters), Core integration pending ← just completed (Step 10)
-9. AI Apps + Integrations ← next
-10. M11 Productivity
+8. Knowledge + Intelligence — frontend done (local/static mock adapters), Core integration pending
+9. AI Apps + Integrations — frontend done (in-memory mock adapter, one combined MCP-tool + connector catalog surface), Core integration pending ← just completed (Step 11)
+10. M11 Productivity — Notes, Tasks + Projects, Calendar, Files + Workspace ← next (starting with Notes)
 11. M12 Smart Home
 
 Only proceed to the next item after the previous one has been reviewed.

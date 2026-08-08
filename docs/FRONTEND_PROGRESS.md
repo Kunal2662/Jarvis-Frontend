@@ -435,6 +435,117 @@ owned by JARVIS Core and are pending verified Core contracts (see
 `docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md` and
 `docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md`).
 
+### Step 11 — AI Apps + Integrations
+**Status: COMPLETE — frontend using an in-memory mock adapter; Core integration pending**
+
+Architecture:
+
+```text
+AiAppsPage
+  ↓
+AiAppsService
+  ↓
+Mock AI Apps Adapter (in-memory) / Future Core Adapter
+```
+
+Per the roadmap (Phase 4, item 8) and the README's Phase 11 scope note
+("Google Workspace, Microsoft 365, Email → Settings → Connections. Plugin
+system and MCP → user-facing as AI Apps, raw registries in Developer
+Mode"), this step deliberately combines two conceptually different Core
+capabilities into **one** catalog surface (`features/aiApps/`), reachable
+from the single pre-existing `/apps` route:
+
+- MCP-style tools the agent itself can call (Web Search, File Access,
+  Automations Tool, Code Sandbox)
+- third-party integration connectors (Gmail, Google Calendar, Microsoft 365)
+
+Both are represented as entries in one `AiApp` type, differentiated by a
+`category: 'mcp-tool' | 'connector'` field — not a second "Integrations" nav
+destination, and not a Settings → Connections page (Settings itself,
+roadmap item 19, is a separate, later, not-yet-built surface).
+
+Implemented:
+
+- `AiApp` / `AiAppCategory` (`'mcp-tool' | 'connector'`) /
+  `AiAppConnectionStatus` (`'connected' | 'not_connected' | 'unavailable'`)
+  types, following the existing `UIStatus`/`AsyncState<T>` convention
+- `aiAppsService.ts` seam (`getApps`, `getApp`, `setConnected` — a
+  deliberately small interface proportionate to a catalog+detail view, no
+  install/uninstall or OAuth-flow method), selectable via
+  `VITE_AI_APPS_BACKEND` (`mock` default, `core` stub)
+- `adapters/mockAiAppsAdapter.ts` — 7 seeded catalog entries (Web Search,
+  File Access, Automations Tool, Code Sandbox — all `mcp-tool`; Gmail,
+  Google Calendar, Microsoft 365 — all `connector`) covering all three
+  connection statuses (`connected`/`not_connected`/`unavailable`);
+  `setConnected` performs a real in-memory mutation with simulated latency
+  and rejects for an app marked `unavailable` (cannot connect what is not
+  offered)
+- `adapters/coreAiAppsAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`) that throws/returns `CoreAiAppsContractUnavailableError`;
+  no Core endpoint invented
+- `AiAppsPage.tsx` — overview counts (total/connected/MCP tools/connectors),
+  a local text filter plus a category filter (both simple client-side
+  `Array.filter`, mirroring `KnowledgePage.tsx`'s source-type filter — not a
+  ranking/search engine), a catalog card grid (`AiAppCard.tsx` — a better fit
+  than a list row for entries that each need a name/icon/provider/
+  description/status, mirroring how `IntelligencePage.tsx` used cards) with
+  a connect/disconnect `Switch` reusing the exact same design-system control
+  and interaction pattern as Automations' enable/disable toggle, and a
+  click-through detail drawer (`AiAppDetailDrawer.tsx`, full description,
+  capabilities/permissions list, the same connect/disconnect control, and an
+  explicit "local/mock, not a real OAuth flow" disclosure)
+- `AiAppCategoryBadge.tsx` / `AiAppStatusBadge.tsx` — category and
+  connection status are always paired with an icon + text label, never color
+  alone, mirroring `AutomationStatusBadge.tsx`/`KnowledgeSourceBadge.tsx`
+- All async states (loading/ready/empty/error/unavailable) rendered through
+  the existing `ModulePage` + `StateView` + `Widget` pattern; no new visual
+  language
+- Routing: `/apps` wired in `App.tsx` (the pre-existing route stub already
+  in `app/modules.tsx`, including its `redirectFrom: ['/plugins']`);
+  `app/modules.tsx` entry flipped from `status: 'planned'` to
+  `status: 'live'` / `ready: true`, the same transition Knowledge/
+  Intelligence went through in Step 10
+- `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md` added, mirroring the existing
+  Knowledge/Intelligence/Automations contract-requirement docs
+
+**Universal Search integration:** AI Apps were registered as one additional
+searchable category (`'ai-app'`) inside the existing Universal Search mock
+adapter (`features/search/adapters/mockSearchAdapter.ts`), consistent with
+how it already searches automations/pages/local chat/knowledge — honest
+substring filtering over name/description/provider, no ranking. Selecting an
+AI App result deep-links to `/apps` and opens that entry's detail drawer via
+`location.state.aiAppId` (mirrors the existing Automations/Knowledge
+deep-link pattern). One pre-existing search test needed a small, honest
+update: querying `"auto"` previously matched only the "Automations" nav
+destination, but the new "Automations Tool" AI App legitimately matches
+`"auto"` too (it is an MCP tool for triggering automations) — the test was
+broadened to assert both groups instead of exactly one, the same way Step 10
+updated `app/__tests__/modules.test.ts`'s invariant when new legitimate live
+data was added. No pre-existing search category's actual behavior changed;
+this is additive, and dedicated regression tests confirm Automations/nav/
+recent-chat/Knowledge search all still return correct results.
+
+**Developer Mode raw registry — deliberately omitted.** The README's Phase
+11 note mentions "raw registries in Developer Mode." This was investigated
+and skipped for this step: `app/modules.tsx` defines an `audience:
+'developer'` concept and a `/design` route gated that way, but no Developer
+Mode toggle/context is actually consumed anywhere in the current UI
+(`AppLayout.tsx`, the command palette, etc. never read
+`developerModules`/`commandModules(devMode)` — they are unwired metadata
+today). Building a gated raw tool/connector registry view for this step
+would have meant inventing that gating infrastructure from scratch, which is
+out of proportion for a catalog+detail surface. This is documented as an
+open item in `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md` for whenever Developer
+Mode itself is wired up.
+
+**AI Apps connections are mock/local to this frontend session only.**
+`setConnected` only flips a local boolean with simulated latency — it never
+redirects to an external URL, never performs a real OAuth handshake, and no
+MCP tool call or third-party account access actually happens through this
+UI. Real MCP tool execution, connector OAuth, and permission/scope
+enforcement remain owned by JARVIS Core and are pending a verified Core
+contract (see `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md`).
+
 ---
 
 ## 4. Current Architecture Pattern
@@ -523,7 +634,7 @@ Important implemented areas in this checkpoint include:
 - `features/search/UniversalSearch.tsx`
 - `features/search/searchService.ts`
 - `features/search/searchHistory.ts`
-- `features/search/adapters/mockSearchAdapter.ts` (now also searches Knowledge — Step 10)
+- `features/search/adapters/mockSearchAdapter.ts` (now also searches Knowledge — Step 10 — and AI Apps — Step 11)
 - `features/search/adapters/coreSearchAdapter.ts`
 - `features/search/__tests__/`
 - `design-system/patterns/SearchOverlay/SearchOverlay.tsx` (pre-existing shell; now wired, plus a small additive `inputProps` passthrough)
@@ -546,6 +657,15 @@ Important implemented areas in this checkpoint include:
 - `features/intelligence/InsightCard.tsx`, `intelligenceFormat.ts`
 - `features/intelligence/__tests__/`
 
+### AI Apps
+
+- `features/aiApps/AiAppsPage.tsx`
+- `features/aiApps/aiAppsService.ts`
+- `features/aiApps/adapters/mockAiAppsAdapter.ts`
+- `features/aiApps/adapters/coreAiAppsAdapter.ts`
+- `features/aiApps/AiAppCard.tsx`, `AiAppDetailDrawer.tsx`, `AiAppCategoryBadge.tsx`, `AiAppStatusBadge.tsx`, `aiAppsFormat.ts`
+- `features/aiApps/__tests__/`
+
 ### Navigation
 
 - `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
@@ -556,20 +676,17 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–10 were green:
+The latest reported frontend gates for the completed Steps 1–11 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **PASS** — 127/127 tests across 20 files (all 87 Step 0–9 tests still pass unchanged, plus 40 new for Step 10):
-  - `features/knowledge/__tests__/knowledgeService.test.ts` (7): mock adapter defaults, core-adapter-not-ready + rejection, seeded items cover all 4 source types with every required field, get-by-id + not-found rejection, and an explicit assertion that no create/update/delete method exists on the service
-  - `features/knowledge/__tests__/KnowledgePage.test.tsx` (7): loading/empty/error+retry/unavailable async states, full list rendering, click-through to the read-only detail drawer, and the local text filter narrowing the list without any extra service call
-  - `features/knowledge/__tests__/routing.test.tsx` (4): `/knowledge` registered as a live secondary module, not a 5th primary-nav item, renders the real page (not the placeholder), and the primary nav/no-sidebar invariant
-  - `features/intelligence/__tests__/intelligenceService.test.ts` (5): mock adapter defaults, core-adapter-not-ready + rejection, the static seed list returning identical content on every call (no client-side computation), and an explicit assertion that no dismiss/acknowledge/create method exists
-  - `features/intelligence/__tests__/IntelligencePage.test.tsx` (7): loading/empty/error+retry/unavailable async states, full list rendering with tone conveyed by icon+text, an explicit assertion that no dismiss/edit/delete control exists anywhere in the UI, and a related-path link navigating to the linked page
-  - `features/intelligence/__tests__/routing.test.tsx` (4): `/intelligence` registered as a live secondary module, not a 5th primary-nav item, renders the real page, and the primary nav/no-sidebar invariant
-  - `features/search/__tests__/searchService.test.ts` (+3): Knowledge documents are now searchable by title and by tag as a categorized "knowledge" group with a working deep-link `navState`, and the Knowledge nav destination still resolves via the "app" category
-  - `app/__tests__/modules.test.ts` (updated, net +3): the old "every secondary module must be planned" invariant was split into "planned secondary modules stay honest placeholders" + "live secondary modules are real, ready pages" + "secondary is exactly the union of the two", to correctly express that Knowledge/Intelligence are now live `secondary`-surface modules
-  - Note: on this development machine, running the full suite with Vitest's default parallel worker pool produced intermittent timeout flakes in unrelated, pre-existing tests (`AutomationsPage.test.tsx`, `automations/__tests__/routing.test.tsx`) under CPU contention; every test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`, and each flaking file also passes in isolation. This is a local resource-contention artifact, not a code regression.
-- Lint on changed/new files: **PASS** (zero errors, zero warnings after fixing one `react-hooks/exhaustive-deps` warning caught during review)
+- Vitest: **PASS** — 159/159 tests across 24 files (all 127 Step 0–10 tests still pass, plus 32 new for Step 11):
+  - `features/aiApps/__tests__/aiAppsService.test.ts` (11): mock adapter defaults, core-adapter-not-ready + rejection, the seeded catalog mixes `mcp-tool`/`connector` categories and covers all three connection statuses, get-by-id + not-found rejection, `setConnected` mutating in place with a persisted `updatedAt` change, `setConnected` rejecting for an app marked `unavailable`, and an explicit assertion that no install/uninstall/OAuth method exists on the service
+  - `features/aiApps/__tests__/AiAppsPage.test.tsx` (7): catalog rendering with mixed categories/statuses and overview counts, connect/disconnect from the catalog card and from the detail drawer (each reflecting back to the other), the toggle staying disabled for an `unavailable` entry, the detail drawer's capabilities list and mock/local disclosure text, and the category + text filters narrowing the catalog
+  - `features/aiApps/__tests__/AiAppsPageStates.test.tsx` (4): loading/empty/error+retry/unavailable async states via a fully controllable fake service, mirroring `AutomationsPageStates.test.tsx`/`KnowledgePage.test.tsx`'s state-coverage pattern
+  - `features/aiApps/__tests__/routing.test.tsx` (5): `/apps` registered as a live secondary module, not a 5th primary-nav item, renders the real page (not the placeholder), the pre-existing `/plugins` redirect still resolves to it, and the primary nav/no-sidebar invariant
+  - `features/search/__tests__/searchService.test.ts` (net +5): AI Apps are now searchable by name and by provider as a categorized "ai-app" group with a working deep-link `navState`, the AI Apps nav destination still resolves via the "app" category, and two explicit regression tests confirm automations/nav/knowledge search and recent-chat search all still return correct results after adding the new category. One pre-existing test in this file (`"auto"` query → nav destination) was broadened, not weakened: the new "Automations Tool" AI App legitimately also matches the substring `"auto"` (it is an MCP tool for triggering automations), so the test now asserts both the unchanged "app" group and the new "ai-app" group instead of asserting exactly one group — the same kind of honest update Step 10 made to `app/__tests__/modules.test.ts` when new live data was added.
+  - Note: as with Step 10, running the full suite with Vitest's default parallel worker pool can produce intermittent timeout flakes in unrelated tests under CPU contention on this development machine; every test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`, which is what was used to produce the 159/159 result above.
+- Lint on changed/new files: **PASS** (zero errors, zero warnings — `npx eslint` run explicitly against every new/changed `.ts`/`.tsx` file)
 - Production build: **PASS** (`tsc -b && vite build`)
 
 There is a known unrelated/pre-existing Storybook lint issue reported during development in:
@@ -591,7 +708,7 @@ These are the next frontend product steps. They should be implemented **one at a
 | 8 | Automations frontend | 🟢 Complete (mock adapter; Core integration pending) |
 | 9 | Universal Search frontend | 🟢 Complete (client-side mock adapter; Core integration pending) |
 | 10 | Knowledge + Intelligence frontend | 🟢 Complete (local/static mock adapters; Core integration pending) |
-| 11 | AI Apps + Integrations frontend | 🔴 Not Started |
+| 11 | AI Apps + Integrations frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
 | 12 | Notes frontend | 🔴 Placeholder |
 | 13 | Tasks + Projects frontend | 🔴 Placeholder |
 | 14 | Calendar frontend | 🔴 Placeholder |
@@ -624,7 +741,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Search → real Core Search
 - Knowledge → real Core Knowledge (frontend currently ships a local/static mock adapter only — see `docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md`)
 - Intelligence → real Core Intelligence Layer (frontend currently ships a static, pre-seeded mock adapter only, no client-side scoring — see `docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md`)
-- AI Apps → real MCP/integration capabilities
+- AI Apps → real MCP tool execution and connector OAuth (frontend currently ships an in-memory mock adapter only, with `setConnected` as a local toggle — no real MCP call or OAuth flow — see `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md`)
 - Automations → real execution/scheduling/persistence (frontend currently ships a mock/local adapter only — see `docs/CORE_AUTOMATIONS_CONTRACT_REQUIRED.md`)
 - Smart Home → real Smart Home services/connectors
 - Memory → real memory service
@@ -660,7 +777,8 @@ Do not redo:
 - Universal Search foundation (`SearchOverlay` wiring, `SearchService` seam)
 - Knowledge foundation (`KnowledgeService` seam, read-only browse/detail UI)
 - Intelligence foundation (`IntelligenceService` seam, read-only display UI)
-- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence stay secondary/command-palette surfaces — none of these are a 5th nav item)
+- AI Apps foundation (`AiAppsService` seam, catalog/detail UI, the single combined `/apps` surface for MCP tools + connectors)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps stay secondary/command-palette surfaces — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -677,10 +795,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–10.
+8. Do not redo Steps 0–11.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Step 11 — AI Apps + Integrations**.
+11. Continue from **Step 12 — Notes** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 5 / M11 Productivity, item 9 — the first item in the next unstarted phase, followed by Tasks + Projects, Calendar, and Files + Workspace, items 10–12).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -693,9 +811,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 10 — Knowledge + Intelligence
+**LAST COMPLETED FRONTEND STEP:** Step 11 — AI Apps + Integrations
 
-**NEXT FRONTEND STEP:** Step 11 — AI Apps + Integrations
+**NEXT FRONTEND STEP:** Step 12 — Notes (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 5 / M11 Productivity, item 9 — the first unstarted item in the next phase; Tasks + Projects, Calendar, and Files + Workspace, items 10–12, follow it)
 
 **CURRENT PRODUCT STATE:**
 
@@ -710,10 +828,11 @@ A new Emergent workspace/account or coding agent should:
 - Universal Search: complete as a cross-cutting overlay surface using a client-side mock adapter (Core search integration pending)
 - Knowledge: complete as a read-only browse/detail frontend surface using a local/static mock adapter (Core ingestion/indexing integration pending)
 - Intelligence: complete as a read-only display frontend surface using a static, pre-seeded mock adapter (Core Intelligence Layer integration pending)
+- AI Apps: complete as a combined MCP-tool + connector catalog/detail frontend surface using an in-memory mock adapter (`setConnected` is a local toggle only — no real MCP call or OAuth flow; Core MCP & Integration Platform integration pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START STEP 11 automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START STEP 12 automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

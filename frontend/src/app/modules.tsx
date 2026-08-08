@@ -86,13 +86,13 @@ export const modules: ModuleDef[] = [
   // ── SECONDARY — live surfaces (⌘K "Go to", not the primary strip) ──
   { path: '/knowledge', label: 'Knowledge', icon: BookOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10A', ready: true },
   { path: '/intelligence', label: 'Intelligence', icon: Lightbulb, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10B', ready: true },
+  { path: '/apps', label: 'AI Apps', icon: Sparkles, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10.5', ready: true, redirectFrom: ['/plugins'] },
 
   // ── SECONDARY — future / placeholder surfaces (⌘K, clearly marked "Soon") ──
   { path: '/notes', label: 'Notes', icon: StickyNote, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
   { path: '/tasks', label: 'Tasks', icon: SquareCheck, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11', redirectFrom: ['/projects'] },
   { path: '/calendar', label: 'Calendar', icon: Calendar, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
   { path: '/files', label: 'Files', icon: FolderOpen, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
-  { path: '/apps', label: 'AI Apps', icon: Sparkles, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M10.5', redirectFrom: ['/plugins'] },
 
   // ── Settings (right cluster, not the main strip) ──
   { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/memory', '/google', '/microsoft', '/diagnostics', '/performance'] },

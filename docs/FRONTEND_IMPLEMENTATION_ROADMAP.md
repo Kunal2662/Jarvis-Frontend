@@ -91,9 +91,19 @@ endpoints were invented — see `docs/CORE_KNOWLEDGE_CONTRACT_REQUIRED.md` and
 ## Phase 4 — M10.5
 
 ### 8. AI Apps + Integrations
-**Status:** 🔴 Not Started
+**Status:** 🟢 Complete (frontend Step 11) — in-memory mock adapter; real Core MCP/integration platform integration pending
 
-Expose real MCP/integration capabilities.
+Frontend surface (`features/aiApps/`) is implemented against a pluggable
+`AiAppsService` adapter (`getApps`, `getApp`, `setConnected` — a purely
+local mock toggle, never a real OAuth flow). Per the README's Phase 11 scope
+note, MCP-style tools (Web Search, File Access, Automations Tool, Code
+Sandbox) and third-party connectors (Gmail, Google Calendar, Microsoft 365)
+are combined into one `/apps` catalog page, differentiated by a `category`
+field, rather than a second "Integrations" nav destination or a
+not-yet-built Settings → Connections page. A Core adapter stub exists
+(`adapters/coreAiAppsAdapter.ts`, `ready: false`) but no Core endpoint was
+invented — see `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md`. Details in
+`docs/FRONTEND_PROGRESS.md` Step 11.
 
 ---
 

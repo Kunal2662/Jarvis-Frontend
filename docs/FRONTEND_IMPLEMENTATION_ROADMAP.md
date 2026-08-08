@@ -54,7 +54,19 @@ Connect the existing Voice UI to the same Core conversational path.
 ## Phase 3 — M10A / M10B
 
 ### 6. Universal Search
-**Status:** 🔴 Not Started
+**Status:** 🟢 Complete (frontend Step 9) — client-side mock adapter; real Core search integration pending
+
+Frontend surface (`features/search/`) is implemented against a client-side
+`SearchService` adapter that does honest substring filtering over data the
+frontend already has: the Automations mock dataset, the live nav
+destinations, and this browser's local recent Chat messages. Wired to the
+pre-existing `SearchOverlay` design-system pattern via a new
+`UniversalSearch.tsx`, reached from the topbar search icon and a dedicated
+`⌘⇧K` shortcut — kept distinct from the Command Palette (`⌘K`, unchanged). A
+Core adapter stub exists (`adapters/coreSearchAdapter.ts`, `ready: false`)
+but no Core endpoint was invented — see
+`docs/CORE_SEARCH_CONTRACT_REQUIRED.md`. Details in
+`docs/FRONTEND_PROGRESS.md` Step 9.
 
 ### 7. Knowledge + Intelligence
 **Status:** 🔴 Not Started

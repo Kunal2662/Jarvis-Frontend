@@ -26,11 +26,11 @@ The frontend is intended to become the modern presentation layer for JARVIS Core
 
 Per the authoritative continuation state in `docs/FRONTEND_PROGRESS.md` (§11):
 
-**LAST COMPLETED FRONTEND STEP:** Step 8 — Automations (frontend UI complete using an in-memory mock adapter; Core execution/scheduling integration pending — see `docs/CORE_AUTOMATIONS_CONTRACT_REQUIRED.md`).
+**LAST COMPLETED FRONTEND STEP:** Step 9 — Universal Search (frontend overlay UI complete using a client-side mock adapter — client-side filtering over the Automations mock dataset, live nav destinations, and local recent Chat messages; real Core search integration pending — see `docs/CORE_SEARCH_CONTRACT_REQUIRED.md`).
 
-**NEXT FRONTEND STEP:** Step 9 — Universal Search.
+**NEXT FRONTEND STEP:** Step 10 — Knowledge + Intelligence.
 
-Do not start Step 9 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
+Do not start Step 10 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
 
 ## Golden rules
 
@@ -169,16 +169,17 @@ Do not silently change milestone status based on assumptions.
 
 The planned order begins:
 
-1. Single Workspace
-2. Navigation & Routing
-3. Global UI Infrastructure
-4. Chat → AgentOrchestrator
-5. Voice → AgentOrchestrator
-6. Search
-7. Knowledge + Intelligence
-8. AI Apps + Integrations
-9. M11 Productivity
-10. M12 Smart Home
+1. Single Workspace — done
+2. Navigation & Routing — done
+3. Global UI Infrastructure — done
+4. Chat → AgentOrchestrator — frontend seam done, Core integration pending
+5. Voice → AgentOrchestrator — frontend seam done, Core integration pending
+6. Automations — frontend done (mock adapter), Core integration pending
+7. Search — frontend done (mock adapter), Core integration pending ← just completed (Step 9)
+8. Knowledge + Intelligence ← next
+9. AI Apps + Integrations
+10. M11 Productivity
+11. M12 Smart Home
 
 Only proceed to the next item after the previous one has been reviewed.
 

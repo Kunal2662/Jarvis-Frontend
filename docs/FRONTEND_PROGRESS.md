@@ -267,6 +267,81 @@ Implemented:
 
 **Automation data is mock/local to this frontend session only.** Nothing is persisted server-side and no automation actually executes — creating/enabling an automation does not trigger real scheduling or side effects. Real execution, scheduling and persistence remain owned by JARVIS Core and are pending a verified Core automation contract (see `docs/CORE_AUTOMATIONS_CONTRACT_REQUIRED.md`).
 
+### Step 9 — Universal Search
+**Status: COMPLETE — frontend using a client-side mock adapter; Core integration pending**
+
+Architecture:
+
+```text
+Topbar search icon / ⌘⇧K
+  ↓
+UniversalSearch (renders inside the existing SearchOverlay pattern)
+  ↓
+SearchService
+  ↓
+Mock Search Adapter (client-side filtering) / Future Core Adapter
+```
+
+Universal Search is a **cross-cutting overlay**, not a new item in the
+primary nav strip — the nav remains exactly Home · Chat · Voice ·
+Automations, with no sidebar. It is reached via the topbar search icon
+(now labeled "Search (⌘⇧K)") or the `⌘⇧K` shortcut. The pre-existing
+`⌘K` shortcut and the topbar's Command Palette keep their unchanged
+command-execution role — the two surfaces stay distinct, as originally
+designed (`SearchOverlay` is explicitly commented "Distinct from
+CommandPalette actions").
+
+Implemented:
+
+- `SearchResult` / `SearchResultGroup` / `SearchResultCategory` types
+  (`'app' | 'automation' | 'chat'` — only domains with real, existing
+  frontend data; no fabricated Knowledge/Files/Memory/Smart Home results),
+  following the existing `UIStatus` convention
+- `searchService.ts` seam (`search(query, signal) → SearchResultGroup[]`),
+  selectable via `VITE_SEARCH_BACKEND` (`mock` default, `core` stub)
+- `adapters/mockSearchAdapter.ts` — honest client-side substring filtering
+  (no ranking/"intelligence") over three real, existing sources: the
+  Automations mock dataset (name/description), the live nav destinations
+  (Home/Chat/Voice/Automations/Settings, mirroring the Command Palette's
+  "Go to" group), and this browser's own local recent Chat messages
+  (`chatStore.ts` localStorage, user messages only). Simulates latency like
+  the other mock adapters
+- `adapters/coreSearchAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`) that throws/returns `CoreSearchContractUnavailableError`;
+  no Core search endpoint invented
+- `searchHistory.ts` — small optional "recent searches" convenience (last 5,
+  localStorage), mirroring the existing `chatStore.ts` / `voiceHistory.ts`
+  local-persistence pattern
+- `UniversalSearch.tsx` — wires the existing, previously-unused
+  `design-system/patterns/SearchOverlay` presentational shell to real search
+  behavior: debounced input, grouped/categorized results with per-result
+  icon + description, `role="listbox"`/`"option"` semantics with
+  `aria-selected`/`aria-activedescendant`, a screen-reader result-count live
+  region, arrow-key/Enter roving selection, and click-to-select. All async
+  states (idle/recent-searches, loading, empty/no-results, error,
+  unavailable) render through the existing `StateView` composite (used
+  directly, not via `ModulePage` — confirmed generic/layout-agnostic)
+- Selecting an automation result navigates to `/automations` and opens that
+  automation's detail drawer via `location.state` (a small, additive
+  deep-link effect in `AutomationsPage.tsx`, mirroring `ChatPage.tsx`'s
+  existing `location.state.prompt` consumption pattern); selecting "Voice"
+  opens the real `VoiceOverlay` (not a placeholder route) via the same
+  `action: 'voice'` convention `ModuleDef`/`AppLayout` already use; other
+  results navigate via react-router and close the overlay
+  `design-system/patterns/SearchOverlay/SearchOverlay.tsx` gained one small,
+  additive, backward-compatible `inputProps` passthrough prop (for
+  `role="combobox"`/`aria-activedescendant` wiring) — no existing behavior
+  changed, no overlay chrome duplicated
+- `app/AppLayout.tsx`: the topbar search icon now opens `UniversalSearch`
+  (relabeled "Search (⌘⇧K)"); a new `⌘⇧K` shortcut opens it directly; `⌘K`
+  is untouched and still opens the Command Palette
+
+**Search results are mock/local to this frontend session only** — client-side
+filtering over data this frontend already has in memory/localStorage. Real
+Core Search (real ranking, a full cross-domain corpus spanning
+Knowledge/Files/Memory/server-side Automations/Chat history) is pending a
+verified Core search contract (see `docs/CORE_SEARCH_CONTRACT_REQUIRED.md`).
+
 ---
 
 ## 4. Current Architecture Pattern
@@ -350,6 +425,16 @@ Important implemented areas in this checkpoint include:
 - `features/automations/AutomationCard.tsx`, `AutomationDetailDrawer.tsx`, `AutomationForm.tsx`, `AutomationStatusBadge.tsx`, `ExecutionHistoryList.tsx`, `automationFormat.ts`
 - `features/automations/__tests__/`
 
+### Universal Search
+
+- `features/search/UniversalSearch.tsx`
+- `features/search/searchService.ts`
+- `features/search/searchHistory.ts`
+- `features/search/adapters/mockSearchAdapter.ts`
+- `features/search/adapters/coreSearchAdapter.ts`
+- `features/search/__tests__/`
+- `design-system/patterns/SearchOverlay/SearchOverlay.tsx` (pre-existing shell; now wired, plus a small additive `inputProps` passthrough)
+
 ### Navigation
 
 - `app/modules.tsx`
@@ -360,13 +445,13 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–8 were green:
+The latest reported frontend gates for the completed Steps 1–9 were green:
 
 - TypeScript/typecheck: **PASS**
-- Vitest: **PASS** — 64/64 tests across the full suite (27 new for Automations: mock adapter CRUD/execution history, core-adapter-not-ready, list/status-badge rendering, enable/disable toggle, pause/resume, delete confirmation flow, create/edit form validation, loading/empty/error/unavailable async states, and routing/nav)
+- Vitest: **PASS** — 87/87 tests across the full suite (all Step 0–8 tests still pass unchanged; 23 new for Universal Search: mock adapter categorized/grouped results per source — automations/pages/local chat — blank-query and no-results handling, core-adapter-not-ready, idle/loading/empty/error/unavailable async states, grouped-result rendering, click-to-navigate with `navState` + overlay close, arrow-key/Enter roving keyboard navigation, the Voice result opening `onOpenVoice` instead of navigating, and routing/nav invariants including the topbar icon opening the new overlay while `⌘K` keeps opening the Command Palette)
 - Lint on changed files: **PASS**
 - Production build: **PASS**
-- Desktop/mobile visual verification was performed for the major completed surfaces
+- Desktop visual verification was performed against the running dev server (search icon → overlay → categorized results → click-through to an automation's detail drawer via deep link, and a "Voice" result correctly opening the real VoiceOverlay instead of a placeholder route)
 
 There is a known unrelated/pre-existing Storybook lint issue reported during development in:
 
@@ -385,7 +470,7 @@ These are the next frontend product steps. They should be implemented **one at a
 | Step | Frontend Work | Status |
 |---:|---|---|
 | 8 | Automations frontend | 🟢 Complete (mock adapter; Core integration pending) |
-| 9 | Universal Search frontend | 🔴 Not Started |
+| 9 | Universal Search frontend | 🟢 Complete (client-side mock adapter; Core integration pending) |
 | 10 | Knowledge + Intelligence frontend | 🔴 Not Started |
 | 11 | AI Apps + Integrations frontend | 🔴 Not Started |
 | 12 | Notes frontend | 🔴 Placeholder |
@@ -452,6 +537,8 @@ Do not redo:
 - existing mock/local adapter pattern
 - Automations foundation
 - AutomationService seam
+- Universal Search foundation (`SearchOverlay` wiring, `SearchService` seam)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay, not a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -468,10 +555,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–8.
+8. Do not redo Steps 0–9.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Step 9 — Universal Search**.
+11. Continue from **Step 10 — Knowledge + Intelligence**.
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -484,9 +571,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 8 — Automations
+**LAST COMPLETED FRONTEND STEP:** Step 9 — Universal Search
 
-**NEXT FRONTEND STEP:** Step 9 — Universal Search
+**NEXT FRONTEND STEP:** Step 10 — Knowledge + Intelligence
 
 **CURRENT PRODUCT STATE:**
 
@@ -498,10 +585,11 @@ A new Emergent workspace/account or coding agent should:
 - Chat: complete using the development adapter
 - Voice: complete using local browser speech adapter
 - Automations: complete as a full frontend surface using an in-memory mock adapter (Core execution/scheduling/persistence pending)
+- Universal Search: complete as a cross-cutting overlay surface using a client-side mock adapter (Core search integration pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START STEP 9 automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START STEP 10 automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

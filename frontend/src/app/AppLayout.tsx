@@ -30,11 +30,13 @@ import {
 } from '../design-system';
 import { secondaryModules, settingsModules, topBarModules } from './modules';
 import { VoiceOverlay } from '../features/voice/VoiceOverlay';
+import { UniversalSearch } from '../features/search/UniversalSearch';
 
 export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -46,9 +48,16 @@ export function AppLayout() {
     return () => clearInterval(t);
   }, []);
 
+  // ⌘K keeps its existing command-execution role (CommandPalette: actions +
+  // "go to"). Universal Search (free-text search-everything, distinct
+  // surface) gets its own shortcut so the two don't collide.
   useHotkey('mod+k', (e) => {
     e.preventDefault();
     setPaletteOpen(true);
+  });
+  useHotkey('mod+shift+k', (e) => {
+    e.preventDefault();
+    setSearchOpen(true);
   });
   useHotkey('mod+j', (e) => {
     e.preventDefault();
@@ -160,7 +169,7 @@ export function AppLayout() {
                   Jarvis ready
                 </span>
               </div>
-              <IconButton label="Search (⌘K)" data-testid="open-search" onClick={() => setPaletteOpen(true)}>
+              <IconButton label="Search (⌘⇧K)" data-testid="open-search" onClick={() => setSearchOpen(true)}>
                 <Search className="size-[18px]" />
               </IconButton>
               <IconButton label="Voice (⌘J)" data-testid="open-voice" onClick={() => setVoiceOpen(true)}>
@@ -195,7 +204,7 @@ export function AppLayout() {
               <StatusItem icon={<Bot />}>12 agents</StatusItem>
             </>
           }
-          right={<StatusItem icon={<Command />}>⌘K · ⌘J voice</StatusItem>}
+          right={<StatusItem icon={<Command />}>⌘K · ⌘⇧K search · ⌘J voice</StatusItem>}
         />
       }
       overlay={
@@ -241,6 +250,7 @@ export function AppLayout() {
             }}
           />
           <NotificationCenter open={notifOpen} onOpenChange={setNotifOpen} groups={notifGroups} onMarkAllRead={() => {}} />
+          <UniversalSearch open={searchOpen} onOpenChange={setSearchOpen} onOpenVoice={() => setVoiceOpen(true)} />
           <VoiceOverlay open={voiceOpen} onOpenChange={setVoiceOpen} />
         </>
       }

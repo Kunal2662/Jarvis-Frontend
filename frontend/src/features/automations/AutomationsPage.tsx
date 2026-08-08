@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock, PauseCircle, Plus, Workflow } from 'lucide-react';
 import {
   Button,
@@ -26,6 +27,7 @@ type FormMode = { mode: 'create' } | { mode: 'edit'; automation: Automation } | 
 export function AutomationsPage() {
   const service = useMemo(() => getAutomationService(), []);
   const list = useAsync<Automation[]>((signal) => service.getAutomations(signal));
+  const location = useLocation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
@@ -43,6 +45,22 @@ export function AutomationsPage() {
   useEffect(() => {
     if (list.data) setAutomations(list.data);
   }, [list.data]);
+
+  // Deep-link support: Universal Search (Step 9) navigates here with
+  // `state: { automationId }` when a search result is selected, so it can
+  // open straight to that automation's detail drawer (mirrors ChatPage's
+  // existing `location.state.prompt` consumption from the command
+  // palette/voice). No-op when navigated to normally.
+  const consumedDeepLink = useRef(false);
+  useEffect(() => {
+    const automationId = (location.state as { automationId?: string } | null)?.automationId;
+    if (!automationId || consumedDeepLink.current) return;
+    if (automations.some((a) => a.id === automationId)) {
+      consumedDeepLink.current = true;
+      setSelectedId(automationId);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state, automations]);
 
   const selected = selectedId ? automations.find((a) => a.id === selectedId) ?? null : null;
 

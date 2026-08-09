@@ -87,12 +87,14 @@ export const modules: ModuleDef[] = [
   { path: '/knowledge', label: 'Knowledge', icon: BookOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10A', ready: true },
   { path: '/intelligence', label: 'Intelligence', icon: Lightbulb, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10B', ready: true },
   { path: '/apps', label: 'AI Apps', icon: Sparkles, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10.5', ready: true, redirectFrom: ['/plugins'] },
+  { path: '/notes', label: 'Notes', icon: StickyNote, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
+  { path: '/tasks', label: 'Tasks', icon: SquareCheck, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true, redirectFrom: ['/projects'] },
+  { path: '/calendar', label: 'Calendar', icon: Calendar, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
+  { path: '/files', label: 'Files', icon: FolderOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
 
-  // ── SECONDARY — future / placeholder surfaces (⌘K, clearly marked "Soon") ──
-  { path: '/notes', label: 'Notes', icon: StickyNote, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
-  { path: '/tasks', label: 'Tasks', icon: SquareCheck, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11', redirectFrom: ['/projects'] },
-  { path: '/calendar', label: 'Calendar', icon: Calendar, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
-  { path: '/files', label: 'Files', icon: FolderOpen, surface: 'secondary', audience: 'everyone', status: 'planned', core: 'M11' },
+  // (No remaining 'secondary' + 'planned' placeholder surfaces as of Step 12 —
+  // every secondary module above is live. The next roadmap phase, M12 Smart
+  // Home, will introduce new placeholder entries here.)
 
   // ── Settings (right cluster, not the main strip) ──
   { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/memory', '/google', '/microsoft', '/diagnostics', '/performance'] },

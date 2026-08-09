@@ -110,18 +110,43 @@ invented — see `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md`. Details in
 ## Phase 5 — M11 Productivity
 
 ### 9. Notes
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 12) — in-memory mock adapter; real Core integration pending
 
 ### 10. Tasks + Projects
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 12) — in-memory mock adapter; real Core integration pending
 
 ### 11. Calendar
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 12) — in-memory mock adapter; real Core integration pending
 
 ### 12. Files + Workspace
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 12) — in-memory mock adapter; real Core integration pending
 
-Verify Core contracts before implementing each.
+Per `JARVIS_CORE_MILESTONES.md` (M11 — Intelligent Workspace & Productivity —
+🟡 Active / Not fully closed on the Core side, unlike the M10A/M10B/M10.5
+milestones behind Steps 9-11), all four surfaces are implemented as
+user-authored, local-first CRUD frontend surfaces (`features/notes/`,
+`features/tasks/`, `features/calendar/`, `features/files/`) against
+pluggable `*Service` seams, each with an in-memory mock adapter and an
+explicit unready Core adapter stub — the same seam pattern Automations
+(Step 8) established. Tasks folds "Projects" into a lightweight free-text
+tag rather than a separate entity/route, per the README's Phase 10 scope
+note. Calendar is JARVIS's own local calendar (an agenda/list view, not a
+month-grid widget) — not a Google Calendar/Microsoft 365 client; those
+remain separate AI Apps catalog *connector* entries (Step 11), with no
+OAuth flow built here. Files is a metadata-only file/folder browser with
+folder navigation and a breadcrumb — there is no real storage, upload, or
+file preview/viewer; its "Add file" action is an explicitly disclosed mock
+placeholder entry. All four are `secondary`/`live` in `app/modules.tsx`
+(flipped from the placeholder `'planned'` state), reachable via
+`/notes`/`/tasks`/`/calendar`/`/files` — none were added to the primary
+Home/Chat/Voice/Automations strip, and no sidebar was introduced. Notes,
+Tasks, Calendar, and Files were also registered as four additional Universal
+Search categories, deep-linking into each page's detail view. Details in
+`docs/FRONTEND_PROGRESS.md` Step 12; Core contract requirements are
+documented in `docs/CORE_NOTES_CONTRACT_REQUIRED.md`,
+`docs/CORE_TASKS_CONTRACT_REQUIRED.md`,
+`docs/CORE_CALENDAR_CONTRACT_REQUIRED.md`, and
+`docs/CORE_FILES_CONTRACT_REQUIRED.md`.
 
 ---
 

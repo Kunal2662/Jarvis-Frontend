@@ -22,12 +22,29 @@
  *  - 'ai-app'     → the AI Apps mock catalog (Step 11) — named, genuinely
  *                   searchable entities (app/connector names), not the
  *                   plugin/tool registry itself
- * Do not add a category (e.g. Files, Memory, Smart Home) until a real
- * frontend surface/dataset backs it. Intelligence insights are deliberately
- * NOT a search category — they are Core-computed display content, not
- * searchable named entities.
+ *  - 'note'       → the Notes mock/local dataset (Step 12) — user-authored
+ *                   notes, searched by title/content
+ *  - 'task'       → the Tasks mock/local dataset (Step 12) — user-authored
+ *                   tasks, searched by title/description
+ *  - 'calendar'   → the Calendar mock/local dataset (Step 12) — user-authored
+ *                   events, searched by title/description/location
+ *  - 'files'      → the Files mock/local dataset (Step 12) — file/folder
+ *                   names only, not folder contents
+ * Do not add a category (e.g. Memory, Smart Home) until a real frontend
+ * surface/dataset backs it. Intelligence insights are deliberately NOT a
+ * search category — they are Core-computed display content, not searchable
+ * named entities.
  */
-export type SearchResultCategory = 'app' | 'automation' | 'chat' | 'knowledge' | 'ai-app';
+export type SearchResultCategory =
+  | 'app'
+  | 'automation'
+  | 'chat'
+  | 'knowledge'
+  | 'ai-app'
+  | 'note'
+  | 'task'
+  | 'calendar'
+  | 'files';
 
 export interface SearchResult {
   id: string;

@@ -53,10 +53,12 @@ describe('search service seam', () => {
     // automation names/descriptions contain the substring "auto", but the
     // AI Apps catalog (Step 11) legitimately does — "Automations Tool" is an
     // MCP-style tool for triggering automations, so it honestly matches too.
-    // Updated from the Step 9 baseline (which asserted exactly one "app"
-    // group) the same way Step 10 updated app/__tests__/modules.test.ts when
-    // new, legitimate live data was added — this asserts the "app" group's
-    // own behavior is unchanged, plus the new "ai-app" group alongside it.
+    // Step 12 adds one more legitimate match: a seeded note's own content
+    // mentions "the automation trigger registry", so it honestly matches as
+    // well. Updated from the Step 9 baseline (which asserted exactly one
+    // "app" group) the same way Step 10/11 updated their own tests when new,
+    // legitimate live data was added — this asserts the "app" group's own
+    // behavior is unchanged, plus the "ai-app" and "note" groups alongside it.
     const groups = await mockSearchService.search('auto');
 
     const appGroup = groups.find((g) => g.category === 'app');
@@ -67,7 +69,7 @@ describe('search service seam', () => {
     expect(aiAppGroup?.results.map((r) => r.title)).toEqual(['Automations Tool']);
 
     // No other categories spuriously match "auto".
-    expect(groups.map((g) => g.category).sort()).toEqual(['ai-app', 'app']);
+    expect(groups.map((g) => g.category).sort()).toEqual(['ai-app', 'app', 'note']);
   });
 
   it('the Voice destination result carries a voice action instead of a placeholder route', async () => {
@@ -184,6 +186,232 @@ describe('search service seam', () => {
   });
 
   it('regression: recent chat search still works alongside the new AI Apps category', async () => {
+    const { saveMessages } = await import('../../chat/chatStore');
+    saveMessages([
+      { id: 'm1', role: 'user', content: 'Remind me about the quarterly review' },
+      { id: 'm2', role: 'assistant', content: 'Sure thing — quarterly review at 3pm.' },
+    ]);
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('quarterly');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('chat');
+    expect(groups[0].results[0].title).toContain('quarterly review');
+  });
+
+  // Step 12 — Notes + Tasks search categories.
+
+  it('a query matching only a note title returns a categorized "note" group (Step 12)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('orb');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('note');
+    expect(groups[0].label).toBe('Notes');
+    expect(groups[0].results.map((r) => r.title)).toContain('Ideas for Voice Orb redesign');
+    // Every result carries a real navigable path with a deep-link to the item.
+    expect(groups[0].results[0].path).toBe('/notes');
+    expect(groups[0].results[0].navState).toEqual({ noteId: 'note-1' });
+  });
+
+  it('a query matching only a note tag returns a categorized "note" group', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('meetings');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('note');
+    expect(groups[0].results.map((r) => r.title)).toContain('Standup notes — Aug 5');
+  });
+
+  it('a query matching only a task title returns a categorized "task" group (Step 12)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('roadmap');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('task');
+    expect(groups[0].label).toBe('Tasks');
+    expect(groups[0].results.map((r) => r.title)).toContain('Draft Q3 roadmap review');
+    // Every result carries a real navigable path with a deep-link to the item.
+    expect(groups[0].results[0].path).toBe('/tasks');
+    expect(groups[0].results[0].navState).toEqual({ taskId: 'task-1' });
+  });
+
+  it('a query matching only a task project tag returns a categorized "task" group', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('polish');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('task');
+    expect(groups[0].results.map((r) => r.title)).toContain('Fix Voice Overlay animation glitch');
+  });
+
+  it('the Notes and Tasks nav destinations are searchable as "app" group results', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const notesGroups = await mockSearchService.search('notes');
+    expect(notesGroups.find((g) => g.category === 'app')?.results.some((r) => r.title === 'Notes' && r.path === '/notes')).toBe(
+      true,
+    );
+
+    const tasksGroups = await mockSearchService.search('tasks');
+    expect(tasksGroups.find((g) => g.category === 'app')?.results.some((r) => r.title === 'Tasks' && r.path === '/tasks')).toBe(
+      true,
+    );
+  });
+
+  // Regression: adding the Notes + Tasks categories must not break any
+  // pre-existing search category (Step 8-11). A query that previously
+  // returned exactly one group for automations/nav/knowledge/ai-app/chat must
+  // still return exactly that, with no spurious note/task group alongside it.
+  it('regression: automations, nav pages, knowledge, and AI Apps search still work correctly after adding the Notes + Tasks categories', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+
+    const automationGroups = await mockSearchService.search('morning');
+    expect(automationGroups.find((g) => g.category === 'automation')?.results.map((r) => r.title)).toContain(
+      'Morning Brief',
+    );
+    expect(automationGroups.some((g) => g.category === 'note' || g.category === 'task')).toBe(false);
+
+    const knowledgeGroups = await mockSearchService.search('checklist');
+    expect(knowledgeGroups.find((g) => g.category === 'knowledge')?.results.map((r) => r.title)).toContain(
+      'Workshop Safety Checklist',
+    );
+    expect(knowledgeGroups.some((g) => g.category === 'note' || g.category === 'task')).toBe(false);
+
+    const aiAppGroups = await mockSearchService.search('sandbox');
+    expect(aiAppGroups.find((g) => g.category === 'ai-app')?.results.map((r) => r.title)).toContain('Code Sandbox');
+    expect(aiAppGroups.some((g) => g.category === 'note' || g.category === 'task')).toBe(false);
+  });
+
+  it('regression: recent chat search still works alongside the new Notes + Tasks categories', async () => {
+    const { saveMessages } = await import('../../chat/chatStore');
+    saveMessages([
+      { id: 'm1', role: 'user', content: 'Remind me about the quarterly review' },
+      { id: 'm2', role: 'assistant', content: 'Sure thing — quarterly review at 3pm.' },
+    ]);
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('quarterly');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('chat');
+    expect(groups[0].results[0].title).toContain('quarterly review');
+  });
+
+  // Step 12 — Calendar + Files search categories.
+
+  it('a query matching only a calendar event title returns a categorized "calendar" group (Step 12)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('checkup');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('calendar');
+    expect(groups[0].label).toBe('Calendar');
+    expect(groups[0].results.map((r) => r.title)).toContain('Dentist checkup');
+    // Every result carries a real navigable path with a deep-link to the item.
+    expect(groups[0].results[0].path).toBe('/calendar');
+    expect(groups[0].results[0].navState).toEqual({ eventId: 'cal-1' });
+  });
+
+  it('a query matching only a calendar event location returns a categorized "calendar" group', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('riverside');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('calendar');
+    expect(groups[0].results.map((r) => r.title)).toContain('Quick jog');
+  });
+
+  it('a query matching only a root-level file name returns a categorized "files" group (Step 12)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('budget');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('files');
+    expect(groups[0].label).toBe('Files');
+    expect(groups[0].results.map((r) => r.title)).toContain('Household budget.xlsx');
+    // Deep-links to /files with the file's (root) containing folder + id.
+    expect(groups[0].results[0].path).toBe('/files');
+    expect(groups[0].results[0].navState).toEqual({ folderId: undefined, fileId: 'file-1' });
+  });
+
+  it('a query matching a file nested inside a folder deep-links to its containing folder', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('lease');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('files');
+    expect(groups[0].results.map((r) => r.title)).toContain('Lease agreement.pdf');
+    expect(groups[0].results[0].navState).toEqual({ folderId: 'folder-1', fileId: 'file-3' });
+  });
+
+  it('a query matching only a folder name returns a categorized "files" group, deep-linking into the folder itself', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('pictures');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('files');
+    expect(groups[0].results.map((r) => r.title)).toContain('Pictures');
+    expect(groups[0].results[0].navState).toEqual({ folderId: 'folder-2' });
+  });
+
+  it('the Calendar and Files nav destinations are searchable as "app" group results, alongside their same-named AI Apps catalog entries', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+
+    // "calendar" also legitimately matches the pre-existing "Google Calendar"
+    // AI Apps connector (Step 11) — both are honest matches, not a bug.
+    const calendarGroups = await mockSearchService.search('calendar');
+    expect(
+      calendarGroups.find((g) => g.category === 'app')?.results.some((r) => r.title === 'Calendar' && r.path === '/calendar'),
+    ).toBe(true);
+    expect(calendarGroups.find((g) => g.category === 'ai-app')?.results.map((r) => r.title)).toContain(
+      'Google Calendar',
+    );
+
+    // "files" also legitimately matches the pre-existing "File Access" AI Apps
+    // MCP tool (Step 11), whose description mentions "files".
+    const filesGroups = await mockSearchService.search('files');
+    expect(
+      filesGroups.find((g) => g.category === 'app')?.results.some((r) => r.title === 'Files' && r.path === '/files'),
+    ).toBe(true);
+    expect(filesGroups.find((g) => g.category === 'ai-app')?.results.map((r) => r.title)).toContain('File Access');
+  });
+
+  // Regression: adding the Calendar + Files categories must not break any
+  // pre-existing search category (Step 8-12). A query that previously
+  // returned exactly one group must still return exactly that, with no
+  // spurious calendar/files group alongside it.
+  it('regression: automations, knowledge, AI Apps, notes, and tasks search still work correctly after adding the Calendar + Files categories', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+
+    const automationGroups = await mockSearchService.search('morning');
+    expect(automationGroups.find((g) => g.category === 'automation')?.results.map((r) => r.title)).toContain(
+      'Morning Brief',
+    );
+    expect(automationGroups.some((g) => g.category === 'calendar' || g.category === 'files')).toBe(false);
+
+    const knowledgeGroups = await mockSearchService.search('checklist');
+    expect(knowledgeGroups.find((g) => g.category === 'knowledge')?.results.map((r) => r.title)).toContain(
+      'Workshop Safety Checklist',
+    );
+    expect(knowledgeGroups.some((g) => g.category === 'calendar' || g.category === 'files')).toBe(false);
+
+    const aiAppGroups = await mockSearchService.search('sandbox');
+    expect(aiAppGroups.find((g) => g.category === 'ai-app')?.results.map((r) => r.title)).toContain('Code Sandbox');
+    expect(aiAppGroups.some((g) => g.category === 'calendar' || g.category === 'files')).toBe(false);
+
+    const noteGroups = await mockSearchService.search('orb');
+    expect(noteGroups.find((g) => g.category === 'note')?.results.map((r) => r.title)).toContain(
+      'Ideas for Voice Orb redesign',
+    );
+    expect(noteGroups.some((g) => g.category === 'calendar' || g.category === 'files')).toBe(false);
+
+    const taskGroups = await mockSearchService.search('roadmap');
+    expect(taskGroups.find((g) => g.category === 'task')?.results.map((r) => r.title)).toContain(
+      'Draft Q3 roadmap review',
+    );
+    expect(taskGroups.some((g) => g.category === 'calendar' || g.category === 'files')).toBe(false);
+  });
+
+  it('regression: recent chat search still works alongside the new Calendar + Files categories', async () => {
     const { saveMessages } = await import('../../chat/chatStore');
     saveMessages([
       { id: 'm1', role: 'user', content: 'Remind me about the quarterly review' },

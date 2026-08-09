@@ -2,6 +2,10 @@ import type { SearchResult, SearchResultGroup, SearchService } from '../searchSe
 import { mockAutomationService } from '../../automations/adapters/mockAutomationAdapter';
 import { mockKnowledgeService } from '../../knowledge/adapters/mockKnowledgeAdapter';
 import { mockAiAppsService } from '../../aiApps/adapters/mockAiAppsAdapter';
+import { mockNotesService } from '../../notes/adapters/mockNotesAdapter';
+import { mockTasksService } from '../../tasks/adapters/mockTasksAdapter';
+import { mockCalendarService } from '../../calendar/adapters/mockCalendarAdapter';
+import { mockFilesService } from '../../files/adapters/mockFilesAdapter';
 import { loadMessages } from '../../chat/chatStore';
 import { liveSecondaryModules, settingsModules, topBarModules } from '../../../app/modules';
 
@@ -97,6 +101,99 @@ async function searchAiApps(term: string): Promise<SearchResult[]> {
     }));
 }
 
+/** The Notes mock/local dataset (Step 12) — search by title/content/tags.
+ *  Matches how searchKnowledge/searchAutomations search: honest substring
+ *  filtering over real (local/mock) data, no ranking. */
+async function searchNotes(term: string): Promise<SearchResult[]> {
+  const notes = await mockNotesService.getNotes();
+  return notes
+    .filter(
+      (n) => matches(n.title, term) || matches(n.content, term) || n.tags.some((tag) => matches(tag, term)),
+    )
+    .map((n) => ({
+      id: `note-${n.id}`,
+      category: 'note' as const,
+      title: n.title || 'Untitled note',
+      description: n.content,
+      path: '/notes',
+      navState: { noteId: n.id },
+    }));
+}
+
+/** The Tasks mock/local dataset (Step 12) — search by title/description/project.
+ *  Matches how searchNotes/searchAutomations search: honest substring
+ *  filtering over real (local/mock) data, no ranking. */
+async function searchTasks(term: string): Promise<SearchResult[]> {
+  const tasks = await mockTasksService.getTasks();
+  return tasks
+    .filter(
+      (t) => matches(t.title, term) || matches(t.description, term) || (t.project ? matches(t.project, term) : false),
+    )
+    .map((t) => ({
+      id: `task-${t.id}`,
+      category: 'task' as const,
+      title: t.title,
+      description: t.description || t.project || undefined,
+      path: '/tasks',
+      navState: { taskId: t.id },
+    }));
+}
+
+/** The Calendar mock/local dataset (Step 12) — search by title/description/
+ *  location. Matches how searchNotes/searchTasks search: honest substring
+ *  filtering over real (local/mock) data, no ranking. */
+async function searchCalendar(term: string): Promise<SearchResult[]> {
+  const events = await mockCalendarService.getEvents();
+  return events
+    .filter(
+      (e) =>
+        matches(e.title, term) || matches(e.description, term) || (e.location ? matches(e.location, term) : false),
+    )
+    .map((e) => ({
+      id: `calendar-${e.id}`,
+      category: 'calendar' as const,
+      title: e.title,
+      description: e.location || e.description || undefined,
+      path: '/calendar',
+      navState: { eventId: e.id },
+    }));
+}
+
+/** The Files mock/local dataset (Step 12) — search by file/folder NAME only,
+ *  not folder contents (per the roadmap: honest substring filtering over
+ *  real data, no ranking, no full-text indexing). A file result deep-links
+ *  to its containing folder; a folder result deep-links into itself. */
+async function searchFiles(term: string): Promise<SearchResult[]> {
+  const root = await mockFilesService.getFiles(undefined);
+  const all = [...root];
+  // Mock adapter only exposes children-of-a-folder, so walk the tree level by
+  // level to build the full searchable set from real (mock) data. Every
+  // folder at a given depth is fetched CONCURRENTLY via Promise.all (mirrors
+  // the fix already applied to the top-level category fan-out below) —
+  // fetching one folder at a time here would otherwise stack simulated
+  // latency per folder and could push a single search() call past test
+  // timeouts once several searches run sequentially in one test.
+  let level = root.filter((e) => e.type === 'folder');
+  while (level.length > 0) {
+    const childArrays = await Promise.all(level.map((folder) => mockFilesService.getFiles(folder.id)));
+    const children = childArrays.flat();
+    all.push(...children);
+    level = children.filter((e) => e.type === 'folder');
+  }
+
+  return all
+    .filter((entry) => matches(entry.name, term))
+    .map((entry) => ({
+      id: `files-${entry.id}`,
+      category: 'files' as const,
+      title: entry.name,
+      description: entry.type === 'folder' ? 'Folder' : entry.mimeType,
+      path: '/files',
+      navState:
+        entry.type === 'folder' ? { folderId: entry.id } : { folderId: entry.parentId, fileId: entry.id },
+    }));
+}
+
 /** This browser's own recent Chat messages (localStorage, Step 7) — real data,
  *  not fabricated history. Only the user's own messages are searched. */
 function searchChat(term: string): SearchResult[] {
@@ -119,6 +216,10 @@ const LABELS: Record<SearchResult['category'], string> = {
   chat: 'Chat',
   knowledge: 'Knowledge',
   'ai-app': 'AI Apps',
+  note: 'Notes',
+  task: 'Tasks',
+  calendar: 'Calendar',
+  files: 'Files',
 };
 
 export const mockSearchService: SearchService = {
@@ -130,9 +231,15 @@ export const mockSearchService: SearchService = {
     const term = query.trim().toLowerCase();
     if (!term) return [];
 
-    const automation = await searchAutomations(term);
-    const knowledge = await searchKnowledge(term);
-    const aiApp = await searchAiApps(term);
+    const [automation, knowledge, aiApp, note, task, calendar, files] = await Promise.all([
+      searchAutomations(term),
+      searchKnowledge(term),
+      searchAiApps(term),
+      searchNotes(term),
+      searchTasks(term),
+      searchCalendar(term),
+      searchFiles(term),
+    ]);
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
     const app = searchApp(term);
     const chat = searchChat(term);
@@ -142,6 +249,10 @@ export const mockSearchService: SearchService = {
       { category: 'automation', label: LABELS.automation, results: automation },
       { category: 'knowledge', label: LABELS.knowledge, results: knowledge },
       { category: 'ai-app', label: LABELS['ai-app'], results: aiApp },
+      { category: 'note', label: LABELS.note, results: note },
+      { category: 'task', label: LABELS.task, results: task },
+      { category: 'calendar', label: LABELS.calendar, results: calendar },
+      { category: 'files', label: LABELS.files, results: files },
       { category: 'chat', label: LABELS.chat, results: chat },
     ];
     const groups = allGroups.filter((g) => g.results.length > 0);

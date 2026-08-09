@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Clock, MessageSquare, Search as SearchIcon, Sparkles, Workflow, type LucideIcon } from 'lucide-react';
+import {
+  BookOpen,
+  CalendarDays,
+  Clock,
+  FolderOpen,
+  MessageSquare,
+  Search as SearchIcon,
+  Sparkles,
+  SquareCheck,
+  StickyNote,
+  Workflow,
+  type LucideIcon,
+} from 'lucide-react';
 import { Kbd, SearchOverlay, StateView, type UIStatus } from '../../design-system';
 import { moduleByPath } from '../../app/modules';
 import { getSearchService, type SearchResult, type SearchResultGroup } from './searchService';
@@ -22,6 +34,10 @@ function resultIcon(result: SearchResult): LucideIcon {
   if (result.category === 'chat') return MessageSquare;
   if (result.category === 'knowledge') return BookOpen;
   if (result.category === 'ai-app') return Sparkles;
+  if (result.category === 'note') return StickyNote;
+  if (result.category === 'task') return SquareCheck;
+  if (result.category === 'calendar') return CalendarDays;
+  if (result.category === 'files') return FolderOpen;
   return moduleByPath(result.path)?.icon ?? SearchIcon;
 }
 
@@ -148,7 +164,7 @@ export function UniversalSearch({ open, onOpenChange, onOpenVoice }: UniversalSe
       onOpenChange={onOpenChange}
       value={query}
       onValueChange={setQuery}
-      placeholder="Search pages, automations, chat, knowledge, and AI Apps…"
+      placeholder="Search pages, automations, chat, knowledge, AI Apps, notes, tasks, calendar, and files…"
       inputProps={{
         role: 'combobox',
         'aria-expanded': totalCount > 0,
@@ -211,7 +227,8 @@ export function UniversalSearch({ open, onOpenChange, onOpenVoice }: UniversalSe
               </>
             ) : (
               <p className="px-1 py-6 text-center text-body-sm text-content-tertiary">
-                Search pages, automations, and your recent chat messages, plus your knowledge base and AI Apps.
+                Search pages, automations, and your recent chat messages, plus your knowledge base, AI Apps,
+                notes, tasks, calendar, and files.
               </p>
             )}
           </div>

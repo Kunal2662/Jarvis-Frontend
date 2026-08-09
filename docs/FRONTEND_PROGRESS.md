@@ -546,6 +546,330 @@ UI. Real MCP tool execution, connector OAuth, and permission/scope
 enforcement remain owned by JARVIS Core and are pending a verified Core
 contract (see `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md`).
 
+## Step 12 — Productivity
+
+Per the roadmap (Phase 5, items 9-12: Notes, Tasks + Projects, Calendar,
+Files + Workspace) and `JARVIS_CORE_MILESTONES.md` (M11 — Intelligent
+Workspace & Productivity — 🟡 Active / Not fully closed, i.e. **not** claimed
+complete on the Core side the way M10A/M10B/M10.5 were for Steps 9-11), all
+four Productivity surfaces are implemented as user-authored, local-first
+CRUD surfaces (unlike the read-only Core-owned Knowledge/Intelligence/AI
+Apps surfaces) with an in-memory mock adapter and an explicit unready Core
+adapter stub each. All four already had matching `secondary`/`planned`
+stubs in `app/modules.tsx`; each is flipped to `live`/`ready: true` in turn,
+the same transition Knowledge/Intelligence/AI Apps went through in Steps
+10-11. None are added to the primary Home/Chat/Voice/Automations strip; no
+sidebar was introduced.
+
+### Notes
+**Status: COMPLETE — frontend using an in-memory mock adapter; Core integration pending**
+
+Architecture:
+
+```text
+NotesPage
+  ↓
+NotesService
+  ↓
+Mock Notes Adapter (in-memory) / Future Core Adapter
+```
+
+Implemented:
+
+- `Note` (`title`, `content` — plain multiline text, intentionally not
+  rich-text/Markdown — `tags: string[]`, `pinned: boolean`,
+  `createdAt`/`updatedAt`) and `NoteInput` types
+- `notesService.ts` seam (`getNotes`, `getNote`, `createNote`, `updateNote`,
+  `deleteNote`, `setPinned`), selectable via `VITE_NOTES_BACKEND` (`mock`
+  default, `core` stub)
+- `adapters/mockNotesAdapter.ts` — 5 seeded notes (2 pinned, 3 unpinned,
+  spanning work and personal tags) with real in-memory create/edit/delete/
+  pin mutations and simulated latency, mirroring
+  `mockAutomationAdapter.ts`'s shape/style
+- `adapters/coreNotesAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`) throwing `CoreNotesContractUnavailableError`; no Core
+  endpoint invented
+- `NotesPage.tsx` — a local text filter over title/content/tags, a note
+  list (`NoteRow.tsx`) with pin toggle and pinned-first ordering, create/
+  edit via `NoteForm.tsx` (plain text area, tag input — no rich-text editor
+  built, since the roadmap does not call for one), a detail drawer
+  (`NoteDetailDrawer.tsx`) with edit/pin/delete (delete requires
+  confirmation, mirroring Automations)
+- All async states (loading/ready/empty/error/unavailable) via the existing
+  `ModulePage` + `StateView` + `Widget` pattern
+- Routing: `/notes` wired in `App.tsx`; `app/modules.tsx` entry flipped from
+  `status: 'planned'` to `status: 'live'` / `ready: true`
+- `docs/CORE_NOTES_CONTRACT_REQUIRED.md` added
+
+### Tasks
+**Status: COMPLETE — frontend using an in-memory mock adapter; Core integration pending**
+
+Architecture:
+
+```text
+TasksPage
+  ↓
+TasksService
+  ↓
+Mock Tasks Adapter (in-memory) / Future Core Adapter
+```
+
+Per the README's Phase 10 note ("Projects becomes a grouping inside them —
+not a navigation destination"), this surface does **not** create a separate
+Projects entity, route, service, or nav item — `/tasks` keeps its
+pre-existing `redirectFrom: ['/projects']`. `project` is a lightweight,
+optional, free-text grouping tag on each `Task` only.
+
+Implemented:
+
+- `Task` (`title`, `description`, `status: 'todo' | 'in-progress' | 'done'`,
+  `priority: 'low' | 'medium' | 'high'`, optional `dueDate` (ISO date, no
+  time), optional `project` (free-text tag), `createdAt`/`updatedAt`,
+  `completedAt` — set on transition to `done`, cleared on reopen) and
+  `TaskInput` types
+- `tasksService.ts` seam (`getTasks`, `getTask`, `createTask`, `updateTask`,
+  `deleteTask`, `setStatus`, `toggleComplete` — a dedicated quick-toggle for
+  the list checkbox), selectable via `VITE_TASKS_BACKEND` (`mock` default,
+  `core` stub)
+- `adapters/mockTasksAdapter.ts` — 6 seeded tasks covering every status/
+  priority combination and both project-tagged and untagged tasks, with
+  real in-memory create/edit/delete/status-change mutations and simulated
+  latency
+- `adapters/coreTasksAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`) throwing `CoreTasksContractUnavailableError`; no Core
+  endpoint invented
+- `TasksPage.tsx` — a local text + status + project filter, a task list
+  (`TaskRow.tsx`) with a completion checkbox (`toggleComplete`) and
+  status/priority badges (`TaskStatusBadge.tsx`/`TaskPriorityBadge.tsx`,
+  status never conveyed by color alone), create/edit via `TaskForm.tsx`, a
+  detail drawer (`TaskDetailDrawer.tsx`) with edit/status-change/delete
+  (delete requires confirmation, mirroring Automations/Notes)
+- No autonomous task-execution engine, no AI-generated task suggestions, no
+  dependency graph — this is a manual personal task list only
+- All async states (loading/ready/empty/error/unavailable) via the existing
+  `ModulePage` + `StateView` + `Widget` pattern
+- Routing: `/tasks` wired in `App.tsx`; `app/modules.tsx` entry flipped from
+  `status: 'planned'` to `status: 'live'` / `ready: true`
+- `docs/CORE_TASKS_CONTRACT_REQUIRED.md` added
+
+**Universal Search integration (Notes + Tasks):** both were registered as
+additional searchable categories (`'note'`, `'task'`) inside the existing
+Universal Search mock adapter, matching name/content/tags (Notes) and
+title/description/project (Tasks) — honest substring filtering, no ranking.
+Selecting a result deep-links to `/notes` or `/tasks` and opens that item's
+detail drawer via `location.state.noteId`/`taskId`. One pre-existing search
+test needed the same kind of honest update Step 11 made: querying `"auto"`
+now also matches a seeded note whose content mentions "the automation
+trigger registry" — the assertion was broadened to include the new `note`
+group rather than weakened. Dedicated regression tests confirm Automations/
+nav/recent-chat/Knowledge/AI Apps search all still return correct results
+alongside the two new categories.
+
+**Search-adapter parallelization fix (Step 12):** adding two more sequential
+`await` calls inside `mockSearchAdapter.ts`'s `search()` (on top of
+Automations/Knowledge/AI Apps) pushed the total simulated latency for a
+single search past ~1.7s, which was fine for one search but caused two
+multi-search regression tests (three sequential `search()` calls each) to
+exceed the default 5000ms test timeout. Fixed by awaiting all five category
+searches concurrently via `Promise.all` instead of sequentially — this is a
+genuine correctness/performance fix (every search now takes roughly
+`max(individual delays)` instead of their sum), not new functionality, and
+does not change any result shape or ordering.
+
+**Both Notes and Tasks are mock/local to this frontend session only.**
+Nothing you create, edit, complete, pin, or delete is persisted anywhere
+beyond the current browser tab's memory. Real persistence, sync, and
+multi-client conflict handling remain owned by JARVIS Core and are pending
+verified Core contracts (see `docs/CORE_NOTES_CONTRACT_REQUIRED.md` and
+`docs/CORE_TASKS_CONTRACT_REQUIRED.md`).
+
+### Calendar
+**Status: COMPLETE — frontend using an in-memory mock adapter; Core integration pending**
+
+Architecture:
+
+```text
+CalendarPage
+  ↓
+CalendarService
+  ↓
+Mock Calendar Adapter (in-memory) / Future Core Adapter
+```
+
+This is JARVIS's own local/Core-owned calendar surface — not a Google
+Calendar/Microsoft 365 client. Third-party calendar *connectors* already
+exist as separate AI Apps catalog entries (Step 11, `features/aiApps/`,
+e.g. "Google Calendar"); no OAuth flow was built here. Per the roadmap
+(Phase 5, item 11), "calendar view" is implemented as a chronological,
+day-grouped **agenda list** rather than a month-grid widget — proportionate
+to a personal local calendar and consistent with how Notes/Tasks reused the
+existing `List`/`ListRow` data component instead of a bespoke visual
+widget; a full grid calendar was explicitly out of scope for this pass.
+
+Implemented:
+
+- `CalendarEvent` (`title`, `description`, `start`/`end` — local-naive
+  `"YYYY-MM-DDTHH:mm"` datetime strings, the same shape a native
+  `<input type="datetime-local">` produces, deliberately without a
+  timezone offset since no Core contract defines one yet, `allDay: boolean`,
+  optional `location`, `createdAt`/`updatedAt`) and `CalendarEventInput`
+  types
+- `calendarService.ts` seam (`getEvents(range?)`, `getEvent`, `createEvent`,
+  `updateEvent`, `deleteEvent`), selectable via `VITE_CALENDAR_BACKEND`
+  (`mock` default, `core` stub); `getEvents` accepts an optional
+  `{ from?, to? }` window over each event's `start`, exercised directly in
+  `calendarService.test.ts`, though `CalendarPage` itself fetches the full
+  set once and filters client-side (mirrors Notes/Tasks/Knowledge's
+  established "fetch once, filter locally" convention)
+- `adapters/mockCalendarAdapter.ts` — 8 seeded events anchored to a fixed
+  "today," spanning two days in the past, two events today (one timed, one
+  all-day), and several across the upcoming week+, with real in-memory
+  create/edit/delete mutations and simulated latency, mirroring
+  `mockNotesAdapter.ts`/`mockTasksAdapter.ts`'s shape/style
+- `adapters/coreCalendarAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`) throwing `CoreCalendarContractUnavailableError`; no Core
+  endpoint invented
+- `CalendarPage.tsx` — stat cards (total/today/this week/upcoming), a local
+  text filter over title/description/location plus a today/this-week/all-
+  upcoming/all-events time filter (both simple client-side `Array.filter`,
+  mirroring `TasksPage.tsx`'s multi-filter row), a day-grouped agenda list
+  (`CalendarEventRow.tsx`, all-day events marked with a badge and rendered
+  distinctly from timed events which show their start time), create/edit via
+  `CalendarEventForm.tsx` (title, description, location, an all-day
+  `Switch`, and date/time inputs that adapt to the all-day toggle), a detail
+  drawer (`CalendarEventDetailDrawer.tsx`) with edit/delete (delete requires
+  confirmation, mirroring Automations/Notes/Tasks)
+- All async states (loading/ready/empty/error/unavailable) via the existing
+  `ModulePage` + `StateView` + `Widget` pattern
+- Routing: `/calendar` wired in `App.tsx`; `app/modules.tsx` entry flipped
+  from `status: 'planned'` to `status: 'live'` / `ready: true`
+- `docs/CORE_CALENDAR_CONTRACT_REQUIRED.md` added
+
+### Files
+**Status: COMPLETE — frontend using an in-memory mock adapter; Core integration pending**
+
+Architecture:
+
+```text
+FilesPage
+  ↓
+FilesService
+  ↓
+Mock Files Adapter (in-memory) / Future Core Adapter
+```
+
+There is no real file storage anywhere in this frontend today — this is a
+**metadata-only file/folder browser**. No file upload/storage/preview system
+was built: `uploadFile` is an explicitly mock, local-only "add a file"
+action that fabricates a plausible name/type/size and never touches real
+file bytes, and there is no PDF/image viewer — only metadata (type, size,
+dates) is shown, per the task's explicit proportionality constraint.
+
+Implemented:
+
+- `FileEntry` (`name`, `type: 'file' | 'folder'`, optional `mimeType`/
+  `sizeBytes` for files, optional `parentId` for folder nesting,
+  `createdAt`/`updatedAt`) and `CreateFolderInput`/`UploadFileInput` types
+- `filesService.ts` seam (`getFiles(folderId?)` — children of a folder, root
+  entries when omitted; `getFile`, `createFolder`, `deleteFile` — covers
+  both files and folders, cascading to a folder's descendants; `uploadFile`
+  — the mock-only add-file action), selectable via `VITE_FILES_BACKEND`
+  (`mock` default, `core` stub)
+- `adapters/mockFilesAdapter.ts` — a small seeded tree (3 root folders:
+  Documents, Pictures, Projects; 5 root-level + 6 nested files across varied
+  mime types — PDF, DOCX, XLSX, PNG, JPEG) with real in-memory
+  create-folder/delete/upload mutations (delete cascades to a folder's
+  descendants) and simulated latency, mirroring
+  `mockNotesAdapter.ts`/`mockCalendarAdapter.ts`'s shape/style
+- `adapters/coreFilesAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`) throwing `CoreFilesContractUnavailableError`; no Core
+  endpoint invented
+- `FilesPage.tsx` — a `List`/`ListRow`-based file/folder listing
+  (`FileEntryRow.tsx`, mirroring `KnowledgeItemRow.tsx`'s "list is the right
+  shape for a browsable set" reasoning), folder navigation (clicking a
+  folder fetches and shows its children; the existing `Breadcrumb`
+  composite — previously unused anywhere in the app — renders the current
+  path and navigates back up), per-folder stat cards (folders/files/total
+  size), a local name filter, a metadata detail drawer for files
+  (`FileDetailDrawer.tsx` — size/type/timeline, no content preview), inline
+  delete on every row (files and folders both, since navigating into a
+  folder means its own row is no longer reachable to open a drawer from) and
+  drawer-based delete for files, both requiring confirmation (a folder's
+  confirmation explicitly warns its contents are deleted too), and
+  `NewFolderForm.tsx`/`AddFileForm.tsx` — small dedicated forms (`AddFileForm`
+  carries an explicit "no real file is uploaded or stored" disclosure)
+- All async states (loading/ready/empty/error/unavailable) via the existing
+  `ModulePage` + `StateView` + `Widget` pattern; the breadcrumb is rendered
+  via `ModulePage`'s `toolbar` slot (outside the loading/empty/error swap)
+  so navigating back out of an empty or errored folder is never blocked
+- Routing: `/files` wired in `App.tsx`; `app/modules.tsx` entry flipped from
+  `status: 'planned'` to `status: 'live'` / `ready: true`
+- `docs/CORE_FILES_CONTRACT_REQUIRED.md` added, including the real
+  storage/upload contract this mock has none of
+
+**Small additive design-system fix:** `design-system/composites/Breadcrumb/Breadcrumb.tsx`
+was unused anywhere in the app before this step. Its non-last crumbs
+rendered as an `<a>` with `onClick` but no `href` — a bare anchor without
+`href` isn't keyboard-focusable, which would have made Files' folder
+breadcrumb (onClick-only, no real hrefs) unreachable by keyboard. Fixed by
+rendering a real `<button>` when a crumb has no `href` (keeping the existing
+`<a>` path unchanged when one is provided) — small, additive, and
+backward-compatible, the same kind of targeted fix Step 9 made to
+`SearchOverlay` (`inputProps` passthrough) when reusing a pre-existing,
+previously-unwired design-system piece.
+
+**Universal Search integration (Calendar + Files):** both were registered as
+additional searchable categories (`'calendar'`, `'files'`) inside the
+existing Universal Search mock adapter, matching title/description/location
+(Calendar) and file/folder **name only, not folder contents** (Files) —
+honest substring filtering, no ranking. Selecting a calendar result
+deep-links to `/calendar` and opens that event's detail drawer via
+`location.state.eventId`. Selecting a files result deep-links to `/files`
+via `location.state.folderId`/`fileId` — a folder result opens that folder
+directly, a file result opens its *containing* folder (walking the file's
+`parentId`) with the file highlighted once its folder's contents load;
+`FilesPage.tsx` resolves the full breadcrumb ancestry for a cold deep link
+by walking `parentId` via repeated `getFile` calls, since normal in-app
+navigation instead grows the breadcrumb incrementally as the user clicks
+through folders. `mockSearchAdapter.ts`'s `searchFiles` walks the mock
+file tree level-by-level through the real `FilesService.getFiles` seam
+(not by reaching into adapter internals) — each level's folders are fetched
+concurrently via `Promise.all` rather than one folder at a time, for the
+same latency-stacking reason described below. Two pre-existing search tests
+needed the same kind of honest update prior steps made when new legitimate
+live data was added: `"calendar"` now also matches the pre-existing "Google
+Calendar" AI Apps connector (Step 11), and `"files"` now also matches the
+pre-existing "File Access" AI Apps MCP tool, whose description mentions
+"files" — both assertions were broadened to include the `ai-app` group
+alongside the `app` group rather than weakened. Two calendar seed titles
+("Morning run", "Quarterly review call") and two file/note titles that
+reused the word "Orb" were renamed during this step (to "Quick jog", "Team
+retro call", "Voice UI redesign...") purely to avoid accidental substring
+collisions with pre-existing exact-match search regression tests (e.g. the
+`"morning"` query asserting exactly one `automation` group) — a data-naming
+adjustment, not a behavior change. Dedicated regression tests confirm
+Automations/nav/Knowledge/AI Apps/Notes/Tasks/recent-chat search all still
+return correct results alongside the two new categories.
+
+**Search-adapter latency fix, again (Step 12):** `searchFiles`'s tree walk
+originally awaited one `getFiles(folderId)` call per folder sequentially
+inside a `while` loop — the exact same latency-stacking problem the Notes +
+Tasks pass had already fixed once at the top level via `Promise.all`. Left
+unfixed, a single `search()` call's total time became bounded by *that*
+sequential chain instead of the top-level `Promise.all`'s `max(...)`, and a
+test issuing several sequential `search()` calls exceeded the default
+5000ms test timeout again. Fixed by fetching every folder at a given tree
+depth concurrently via `Promise.all`, walking depth by depth — a genuine
+correctness/performance fix, not new functionality.
+
+**Both Calendar and Files are mock/local to this frontend session only.**
+Nothing you create, edit, or delete is persisted anywhere beyond the current
+browser tab's memory, and Files' "Add file" action never touches a real
+file. Real persistence, sync, and (for Files) real storage/upload remain
+owned by JARVIS Core and are pending verified Core contracts (see
+`docs/CORE_CALENDAR_CONTRACT_REQUIRED.md` and
+`docs/CORE_FILES_CONTRACT_REQUIRED.md`).
+
 ---
 
 ## 4. Current Architecture Pattern
@@ -666,6 +990,43 @@ Important implemented areas in this checkpoint include:
 - `features/aiApps/AiAppCard.tsx`, `AiAppDetailDrawer.tsx`, `AiAppCategoryBadge.tsx`, `AiAppStatusBadge.tsx`, `aiAppsFormat.ts`
 - `features/aiApps/__tests__/`
 
+### Notes
+
+- `features/notes/NotesPage.tsx`
+- `features/notes/notesService.ts`
+- `features/notes/adapters/mockNotesAdapter.ts`
+- `features/notes/adapters/coreNotesAdapter.ts`
+- `features/notes/NoteRow.tsx`, `NoteDetailDrawer.tsx`, `NoteForm.tsx`, `notesFormat.ts`
+- `features/notes/__tests__/`
+
+### Tasks
+
+- `features/tasks/TasksPage.tsx`
+- `features/tasks/tasksService.ts`
+- `features/tasks/adapters/mockTasksAdapter.ts`
+- `features/tasks/adapters/coreTasksAdapter.ts`
+- `features/tasks/TaskRow.tsx`, `TaskDetailDrawer.tsx`, `TaskForm.tsx`, `TaskStatusBadge.tsx`, `TaskPriorityBadge.tsx`, `tasksFormat.ts`
+- `features/tasks/__tests__/`
+
+### Calendar
+
+- `features/calendar/CalendarPage.tsx`
+- `features/calendar/calendarService.ts`
+- `features/calendar/adapters/mockCalendarAdapter.ts`
+- `features/calendar/adapters/coreCalendarAdapter.ts`
+- `features/calendar/CalendarEventRow.tsx`, `CalendarEventDetailDrawer.tsx`, `CalendarEventForm.tsx`, `calendarFormat.ts`
+- `features/calendar/__tests__/`
+
+### Files
+
+- `features/files/FilesPage.tsx`
+- `features/files/filesService.ts`
+- `features/files/adapters/mockFilesAdapter.ts`
+- `features/files/adapters/coreFilesAdapter.ts`
+- `features/files/FileEntryRow.tsx`, `FileDetailDrawer.tsx`, `NewFolderForm.tsx`, `AddFileForm.tsx`, `filesFormat.ts`
+- `features/files/__tests__/`
+- `design-system/composites/Breadcrumb/Breadcrumb.tsx` (pre-existing, previously unused; small additive keyboard-accessibility fix in this step)
+
 ### Navigation
 
 - `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
@@ -676,16 +1037,16 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–11 were green:
+The latest reported frontend gates for the completed Steps 1–12 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **PASS** — 159/159 tests across 24 files (all 127 Step 0–10 tests still pass, plus 32 new for Step 11):
-  - `features/aiApps/__tests__/aiAppsService.test.ts` (11): mock adapter defaults, core-adapter-not-ready + rejection, the seeded catalog mixes `mcp-tool`/`connector` categories and covers all three connection statuses, get-by-id + not-found rejection, `setConnected` mutating in place with a persisted `updatedAt` change, `setConnected` rejecting for an app marked `unavailable`, and an explicit assertion that no install/uninstall/OAuth method exists on the service
-  - `features/aiApps/__tests__/AiAppsPage.test.tsx` (7): catalog rendering with mixed categories/statuses and overview counts, connect/disconnect from the catalog card and from the detail drawer (each reflecting back to the other), the toggle staying disabled for an `unavailable` entry, the detail drawer's capabilities list and mock/local disclosure text, and the category + text filters narrowing the catalog
-  - `features/aiApps/__tests__/AiAppsPageStates.test.tsx` (4): loading/empty/error+retry/unavailable async states via a fully controllable fake service, mirroring `AutomationsPageStates.test.tsx`/`KnowledgePage.test.tsx`'s state-coverage pattern
-  - `features/aiApps/__tests__/routing.test.tsx` (5): `/apps` registered as a live secondary module, not a 5th primary-nav item, renders the real page (not the placeholder), the pre-existing `/plugins` redirect still resolves to it, and the primary nav/no-sidebar invariant
-  - `features/search/__tests__/searchService.test.ts` (net +5): AI Apps are now searchable by name and by provider as a categorized "ai-app" group with a working deep-link `navState`, the AI Apps nav destination still resolves via the "app" category, and two explicit regression tests confirm automations/nav/knowledge search and recent-chat search all still return correct results after adding the new category. One pre-existing test in this file (`"auto"` query → nav destination) was broadened, not weakened: the new "Automations Tool" AI App legitimately also matches the substring `"auto"` (it is an MCP tool for triggering automations), so the test now asserts both the unchanged "app" group and the new "ai-app" group instead of asserting exactly one group — the same kind of honest update Step 10 made to `app/__tests__/modules.test.ts` when new live data was added.
-  - Note: as with Step 10, running the full suite with Vitest's default parallel worker pool can produce intermittent timeout flakes in unrelated tests under CPU contention on this development machine; every test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`, which is what was used to produce the 159/159 result above.
+- Vitest: **PASS** — 292/292 tests across 40 files (all 159 Step 0–11 tests still pass, plus 133 new for Step 12 — Notes, Tasks, Calendar, Files, and their Universal Search categories):
+  - Notes (28 across 4 files): `notesService.test.ts` (11 — mock adapter CRUD/defaults, core-adapter-not-ready + every method rejecting, seeded pinned/unpinned mix), `NotesPage.test.tsx` (9 — rendering, text/tag filtering, pin toggle, create/edit/delete flows, required-title validation), `NotesPageStates.test.tsx` (4 — loading/empty/error+retry/unavailable), `routing.test.tsx` (4 — live secondary module, not a 5th primary nav item, real page renders, primary nav/no-sidebar invariant)
+  - Tasks (33 across 4 files): `tasksService.test.ts` (12), `TasksPage.test.tsx` (11 — including status/priority/project filters and the completion-checkbox quick toggle), `TasksPageStates.test.tsx` (4), `routing.test.tsx` (6 — including the pre-existing `/projects` redirect)
+  - Calendar (27 across 4 files): `calendarService.test.ts` (11 — mock adapter CRUD/defaults, core-adapter rejection, the `getEvents(range)` `from`/`to` window, seeded all-day + timed mix), `CalendarPage.test.tsx` (8 — day-grouped agenda rendering with all-day vs. timed events shown distinctly, text + time-range filtering, detail drawer, create/edit/delete flows, required-title validation), `CalendarPageStates.test.tsx` (4), `routing.test.tsx` (4)
+  - Files (30 across 4 files): `filesService.test.ts` (12 — mock adapter CRUD/defaults, core-adapter rejection, folder-scoped `getFiles`, cascading folder delete, the mock-only `uploadFile` metadata action), `FilesPage.test.tsx` (9 — root listing, name filter, folder navigation + breadcrumb back-navigation, file detail drawer, create-folder + add-file flows including the mock disclosure text, file delete and cascading folder delete each with confirm/cancel), `FilesPageStates.test.tsx` (5 — loading/empty/error+retry/unavailable, plus an explicit check that the breadcrumb toolbar stays visible in the empty state so folder navigation is never lost), `routing.test.tsx` (4)
+  - `features/search/__tests__/searchService.test.ts` (net +15 across the Notes+Tasks and Calendar+Files additions): Notes/Tasks/Calendar/Files are each searchable as their own categorized group with working deep-link `navState` (Calendar → `eventId`; Files → `folderId`/`fileId`, resolving a nested file's *containing* folder), the Notes/Tasks/Calendar/Files nav destinations remain searchable via the "app" category, and regression tests confirm every pre-existing category (automation/knowledge/ai-app/chat) plus each newly-added one keeps working correctly together. Two pre-existing-style honest broadenings were needed, not weakenings: `"auto"` already matched extra legitimate data from Steps 11–12 (documented in-line in the test file), and `"calendar"`/`"files"` each legitimately also match a same-themed pre-existing AI Apps catalog entry ("Google Calendar", "File Access") — both assertions were broadened to include the extra `ai-app` group rather than narrowed. A few calendar/file seed titles ("Morning run", "Quarterly review call", two reuses of "Voice Orb …") were renamed during this step purely to avoid incidental substring collisions with earlier steps' exact-match search assertions — seed-data naming only, not a behavior change.
+  - Note: as with prior steps, running the full suite with Vitest's default parallel worker pool can produce intermittent timeout flakes in unrelated tests under CPU contention on this development machine; every test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`, which is what was used to produce the 292/292 result above.
 - Lint on changed/new files: **PASS** (zero errors, zero warnings — `npx eslint` run explicitly against every new/changed `.ts`/`.tsx` file)
 - Production build: **PASS** (`tsc -b && vite build`)
 
@@ -709,11 +1070,11 @@ These are the next frontend product steps. They should be implemented **one at a
 | 9 | Universal Search frontend | 🟢 Complete (client-side mock adapter; Core integration pending) |
 | 10 | Knowledge + Intelligence frontend | 🟢 Complete (local/static mock adapters; Core integration pending) |
 | 11 | AI Apps + Integrations frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
-| 12 | Notes frontend | 🔴 Placeholder |
-| 13 | Tasks + Projects frontend | 🔴 Placeholder |
-| 14 | Calendar frontend | 🔴 Placeholder |
-| 15 | Files + Workspace frontend | 🔴 Placeholder |
-| 16 | Smart Home Command Center | 🔴 Placeholder |
+| 12 | Notes frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
+| 13 | Tasks + Projects frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
+| 14 | Calendar frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
+| 15 | Files + Workspace frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
+| 16 | Smart Home Command Center | 🔴 Placeholder ← next |
 | 17 | Device Management / Connectivity UI | 🔴 Placeholder |
 | 18 | Home Assistant + MQTT frontend integration | 🔴 Placeholder / Core-contract dependent |
 | 19 | Memory frontend | 🔴 Placeholder / contract dependent |
@@ -743,9 +1104,12 @@ The following are intentionally pending real JARVIS Core contracts:
 - Intelligence → real Core Intelligence Layer (frontend currently ships a static, pre-seeded mock adapter only, no client-side scoring — see `docs/CORE_INTELLIGENCE_CONTRACT_REQUIRED.md`)
 - AI Apps → real MCP tool execution and connector OAuth (frontend currently ships an in-memory mock adapter only, with `setConnected` as a local toggle — no real MCP call or OAuth flow — see `docs/CORE_AI_APPS_CONTRACT_REQUIRED.md`)
 - Automations → real execution/scheduling/persistence (frontend currently ships a mock/local adapter only — see `docs/CORE_AUTOMATIONS_CONTRACT_REQUIRED.md`)
+- Notes → real persistence/sync (frontend currently ships an in-memory mock adapter only — see `docs/CORE_NOTES_CONTRACT_REQUIRED.md`)
+- Tasks → real persistence/sync (frontend currently ships an in-memory mock adapter only — see `docs/CORE_TASKS_CONTRACT_REQUIRED.md`)
+- Calendar → real persistence/timezone contract (frontend currently ships an in-memory mock adapter only, local-naive datetimes with no timezone model — see `docs/CORE_CALENDAR_CONTRACT_REQUIRED.md`)
+- Files → real storage/upload (frontend currently ships an in-memory, metadata-only mock adapter only — no real file bytes exist anywhere in this frontend — see `docs/CORE_FILES_CONTRACT_REQUIRED.md`)
 - Smart Home → real Smart Home services/connectors
 - Memory → real memory service
-- Tasks/Calendar/Files → real persistence/service contracts
 
 These should not be implemented as fake backend systems in React.
 
@@ -778,7 +1142,11 @@ Do not redo:
 - Knowledge foundation (`KnowledgeService` seam, read-only browse/detail UI)
 - Intelligence foundation (`IntelligenceService` seam, read-only display UI)
 - AI Apps foundation (`AiAppsService` seam, catalog/detail UI, the single combined `/apps` surface for MCP tools + connectors)
-- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps stay secondary/command-palette surfaces — none of these are a 5th nav item)
+- Notes foundation (`NotesService` seam, list/pin/CRUD UI)
+- Tasks foundation (`TasksService` seam, list/status/CRUD UI, the `project` free-text tag convention — no separate Projects entity/route)
+- Calendar foundation (`CalendarService` seam, the day-grouped agenda UI — not a month-grid widget, and not a Google Calendar/Microsoft 365 client)
+- Files foundation (`FilesService` seam, the folder-navigation + breadcrumb UI, the metadata-only "no real storage" scope)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files stay secondary/command-palette surfaces — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -795,10 +1163,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–11.
+8. Do not redo Steps 0–12.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Step 12 — Notes** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 5 / M11 Productivity, item 9 — the first item in the next unstarted phase, followed by Tasks + Projects, Calendar, and Files + Workspace, items 10–12).
+11. Continue from **Step 13 — Smart Home Command Center** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 13 — the first item in the next unstarted phase, followed by Device Management and Home Assistant + MQTT, items 14–15. Verify the real Smart Home Core/connector contracts before implementing — that phase's own note says Core connectors already exist, so frontend integration must use real contracts, not a new mock).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -811,9 +1179,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 11 — AI Apps + Integrations
+**LAST COMPLETED FRONTEND STEP:** Step 12 — Productivity (Notes, Tasks + Projects, Calendar, Files + Workspace)
 
-**NEXT FRONTEND STEP:** Step 12 — Notes (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 5 / M11 Productivity, item 9 — the first unstarted item in the next phase; Tasks + Projects, Calendar, and Files + Workspace, items 10–12, follow it)
+**NEXT FRONTEND STEP:** Step 13 — Smart Home Command Center (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 13 — the first unstarted item in the next phase; Device Management and Home Assistant + MQTT, items 14–15, follow it)
 
 **CURRENT PRODUCT STATE:**
 
@@ -829,10 +1197,14 @@ A new Emergent workspace/account or coding agent should:
 - Knowledge: complete as a read-only browse/detail frontend surface using a local/static mock adapter (Core ingestion/indexing integration pending)
 - Intelligence: complete as a read-only display frontend surface using a static, pre-seeded mock adapter (Core Intelligence Layer integration pending)
 - AI Apps: complete as a combined MCP-tool + connector catalog/detail frontend surface using an in-memory mock adapter (`setConnected` is a local toggle only — no real MCP call or OAuth flow; Core MCP & Integration Platform integration pending)
+- Notes: complete as a full CRUD frontend surface using an in-memory mock adapter (Core persistence/sync integration pending)
+- Tasks: complete as a full CRUD frontend surface using an in-memory mock adapter, `project` as a free-text tag rather than a separate entity (Core persistence/sync integration pending)
+- Calendar: complete as a day-grouped agenda frontend surface using an in-memory mock adapter — JARVIS's own local calendar, not a Google Calendar/Microsoft 365 client (Core persistence + timezone contract pending)
+- Files: complete as a metadata-only file/folder browser frontend surface using an in-memory mock adapter — no real storage/upload/preview (Core storage/upload contract pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START STEP 12 automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START STEP 13 automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

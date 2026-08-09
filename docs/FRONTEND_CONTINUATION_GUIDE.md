@@ -26,11 +26,11 @@ The frontend is intended to become the modern presentation layer for JARVIS Core
 
 Per the authoritative continuation state in `docs/FRONTEND_PROGRESS.md` (§11):
 
-**LAST COMPLETED FRONTEND STEP:** Step 12 — Productivity (Notes, Tasks + Projects, Calendar, Files + Workspace — four independent frontend surfaces, `/notes` `/tasks` `/calendar` `/files`, each using its own in-memory mock adapter and unready Core adapter stub, the same seam pattern Automations established. Tasks folds "Projects" into a free-text tag rather than a separate entity. Calendar is JARVIS's own local agenda/list view, not a Google Calendar/Microsoft 365 client — those stay separate AI Apps connector entries (Step 11); no OAuth was built. Files is a metadata-only file/folder browser with folder navigation + breadcrumb — no real storage/upload/preview; "Add file" is an explicitly disclosed mock action. All four also became Universal Search categories. Real Core M11 integration pending for all four — see `docs/CORE_NOTES_CONTRACT_REQUIRED.md`, `docs/CORE_TASKS_CONTRACT_REQUIRED.md`, `docs/CORE_CALENDAR_CONTRACT_REQUIRED.md`, `docs/CORE_FILES_CONTRACT_REQUIRED.md`).
+**LAST COMPLETED FRONTEND STEP:** Step 13 — Smart Home Command Center (`/smart-home`, a normalized-entity room/device/scene overview — `Room`/`Device`/`Scene`/`DeviceCapability`/`DeviceCommand` types, never vendor-specific UI — using an in-memory mock adapter (6 rooms, 12 devices, 3 scenes, real state mutation + a light realtime seam) and an unready Core adapter stub, the same seam pattern Automations established. This is the Command Center only — Device Management (item 14) and Home Assistant + MQTT connector configuration (item 15) are separate, later steps not built here. A prominent on-page banner discloses every device is simulated; no command sent affects anything physical. Also became three Universal Search categories (room/device/scene). Real Core M12/Home Assistant/MQTT integration pending — see `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`).
 
-**NEXT FRONTEND STEP:** Step 13 — Smart Home Command Center (`docs/FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 13 — the first unstarted item in the next phase; Device Management, item 14, and Home Assistant + MQTT, item 15, follow it. That phase's own note: "Core connectors exist; frontend integration must use real contracts" — verify the actual Smart Home Core/connector contracts before implementing, per the roadmap's standing rule.).
+**NEXT FRONTEND STEP:** Step 14 — Device Management (`docs/FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 14 — the next unstarted item after the Step 13 Command Center; Home Assistant + MQTT, item 15, follows it. That phase's own note: "Core connectors exist; frontend integration must use real contracts" — verify the actual Smart Home Core/connector contracts before implementing, per the roadmap's standing rule.).
 
-Do not start Step 13 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
+Do not start Step 14 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
 
 ## Golden rules
 
@@ -178,8 +178,8 @@ The planned order begins:
 7. Search — frontend done (mock adapter), Core integration pending
 8. Knowledge + Intelligence — frontend done (local/static mock adapters), Core integration pending
 9. AI Apps + Integrations — frontend done (in-memory mock adapter, one combined MCP-tool + connector catalog surface), Core integration pending
-10. M11 Productivity — Notes, Tasks + Projects, Calendar, Files + Workspace — frontend done (four independent in-memory mock adapters), Core integration pending ← just completed (Step 12)
-11. M12 Smart Home — Smart Home Command Center, Device Management, Home Assistant + MQTT ← next (starting with Smart Home Command Center)
+10. M11 Productivity — Notes, Tasks + Projects, Calendar, Files + Workspace — frontend done (four independent in-memory mock adapters), Core integration pending
+11. M12 Smart Home — Smart Home Command Center — frontend done (in-memory mock adapter, normalized room/device/scene entities), Core/Home Assistant/MQTT integration pending ← just completed (Step 13); Device Management and Home Assistant + MQTT remain, next up starting with Device Management
 
 Only proceed to the next item after the previous one has been reviewed.
 

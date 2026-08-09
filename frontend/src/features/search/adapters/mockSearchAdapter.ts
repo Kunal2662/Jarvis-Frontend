@@ -6,6 +6,7 @@ import { mockNotesService } from '../../notes/adapters/mockNotesAdapter';
 import { mockTasksService } from '../../tasks/adapters/mockTasksAdapter';
 import { mockCalendarService } from '../../calendar/adapters/mockCalendarAdapter';
 import { mockFilesService } from '../../files/adapters/mockFilesAdapter';
+import { mockSmartHomeService } from '../../smartHome/adapters/mockSmartHomeAdapter';
 import { loadMessages } from '../../chat/chatStore';
 import { liveSecondaryModules, settingsModules, topBarModules } from '../../../app/modules';
 
@@ -194,6 +195,61 @@ async function searchFiles(term: string): Promise<SearchResult[]> {
     }));
 }
 
+/** The Smart Home mock room set (Step 13) — search by room name only (rooms
+ *  have no other searchable text field). Matches how searchNotes/searchTasks
+ *  search: honest substring filtering over real (local/mock) data, no
+ *  ranking. Deep-links to `/smart-home` and pre-selects the room filter. */
+async function searchRooms(term: string): Promise<SearchResult[]> {
+  const rooms = await mockSmartHomeService.getRooms();
+  return rooms
+    .filter((r) => matches(r.name, term))
+    .map((r) => ({
+      id: `room-${r.id}`,
+      category: 'room' as const,
+      title: r.name,
+      description: `${r.deviceCount} ${r.deviceCount === 1 ? 'device' : 'devices'}`,
+      path: '/smart-home',
+      navState: { roomId: r.id },
+    }));
+}
+
+/** The Smart Home mock device set (Step 13) — search by device name/type.
+ *  Note device names are prefixed with their room name (e.g. "Living Room
+ *  Light"), so a query matching a room legitimately also matches that room's
+ *  devices — this is honest, not a bug (mirrors how "Google Calendar"
+ *  legitimately matches both the `calendar` and `ai-app` categories, Step
+ *  12). Deep-links to `/smart-home`, pre-selecting that device's room. */
+async function searchDevices(term: string): Promise<SearchResult[]> {
+  const devices = await mockSmartHomeService.getDevices();
+  return devices
+    .filter((d) => matches(d.name, term) || matches(d.type, term))
+    .map((d) => ({
+      id: `device-${d.id}`,
+      category: 'device' as const,
+      title: d.name,
+      description: d.type,
+      path: '/smart-home',
+      navState: { deviceId: d.id },
+    }));
+}
+
+/** The Smart Home mock scene set (Step 13) — search by name/description.
+ *  Matches how searchAutomations/searchKnowledge search. Deep-links to
+ *  `/smart-home` and highlights the matched scene card. */
+async function searchScenes(term: string): Promise<SearchResult[]> {
+  const scenes = await mockSmartHomeService.getScenes();
+  return scenes
+    .filter((s) => matches(s.name, term) || matches(s.description, term))
+    .map((s) => ({
+      id: `scene-${s.id}`,
+      category: 'scene' as const,
+      title: s.name,
+      description: s.description,
+      path: '/smart-home',
+      navState: { sceneId: s.id },
+    }));
+}
+
 /** This browser's own recent Chat messages (localStorage, Step 7) — real data,
  *  not fabricated history. Only the user's own messages are searched. */
 function searchChat(term: string): SearchResult[] {
@@ -220,6 +276,9 @@ const LABELS: Record<SearchResult['category'], string> = {
   task: 'Tasks',
   calendar: 'Calendar',
   files: 'Files',
+  room: 'Rooms',
+  device: 'Devices',
+  scene: 'Scenes',
 };
 
 export const mockSearchService: SearchService = {
@@ -231,7 +290,7 @@ export const mockSearchService: SearchService = {
     const term = query.trim().toLowerCase();
     if (!term) return [];
 
-    const [automation, knowledge, aiApp, note, task, calendar, files] = await Promise.all([
+    const [automation, knowledge, aiApp, note, task, calendar, files, room, device, scene] = await Promise.all([
       searchAutomations(term),
       searchKnowledge(term),
       searchAiApps(term),
@@ -239,6 +298,9 @@ export const mockSearchService: SearchService = {
       searchTasks(term),
       searchCalendar(term),
       searchFiles(term),
+      searchRooms(term),
+      searchDevices(term),
+      searchScenes(term),
     ]);
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
     const app = searchApp(term);
@@ -253,6 +315,9 @@ export const mockSearchService: SearchService = {
       { category: 'task', label: LABELS.task, results: task },
       { category: 'calendar', label: LABELS.calendar, results: calendar },
       { category: 'files', label: LABELS.files, results: files },
+      { category: 'room', label: LABELS.room, results: room },
+      { category: 'device', label: LABELS.device, results: device },
+      { category: 'scene', label: LABELS.scene, results: scene },
       { category: 'chat', label: LABELS.chat, results: chat },
     ];
     const groups = allGroups.filter((g) => g.results.length > 0);

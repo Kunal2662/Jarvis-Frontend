@@ -153,7 +153,30 @@ documented in `docs/CORE_NOTES_CONTRACT_REQUIRED.md`,
 ## Phase 6 — M12 Smart Home
 
 ### 13. Smart Home Command Center
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 13) — in-memory mock adapter; real Core/Home Assistant/MQTT integration pending
+
+Per `JARVIS_CORE_MILESTONES.md` (M12 — 🟡 Active; Home Assistant and MQTT
+connectors are marked "shipped" on the Core side, but no concrete API
+contract — endpoint, schema, auth, event stream — is documented anywhere in
+this frontend checkpoint), the Command Center overview (`features/smartHome/`)
+is implemented entirely against normalized, vendor-neutral entities (`Room`,
+`Device`, `DeviceCapability`, `DeviceCommand`, `Scene`) via a `SmartHomeService`
+seam, the same mock-adapter/unready-Core-adapter-stub pattern as every prior
+step — no Home Assistant/MQTT endpoint was invented, and the frontend never
+talks to a connector directly (per `JARVIS_FRONTEND_ARCHITECTURE.md`'s "do not
+build a second smart-home protocol engine" rule). This is the Command Center
+only — rooms, devices, inline controls, and scenes; per-device settings/
+pairing/diagnostics (item 14, Device Management) and connector-specific
+configuration (item 15, Home Assistant + MQTT) are separate, later,
+out-of-scope steps. A prominent on-page banner discloses that every room,
+device, and scene is simulated and local to the browser tab — no command sent
+from this page affects anything physical. `/smart-home` is `secondary`/`live`
+in `app/modules.tsx` (a net-new entry — there was no pre-existing placeholder
+stub, unlike Steps 10-12); it is not on the primary Home/Chat/Voice/Automations
+strip, and no sidebar was introduced. Rooms, Devices, and Scenes were also
+registered as three additional Universal Search categories. Details in
+`docs/FRONTEND_PROGRESS.md` Step 13; Core contract requirements are documented
+in `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`.
 
 ### 14. Device Management
 **Status:** 🔴 Placeholder

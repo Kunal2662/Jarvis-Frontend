@@ -5,12 +5,15 @@ import {
   CalendarDays,
   Clock,
   FolderOpen,
+  House,
+  Lightbulb,
   MessageSquare,
   Search as SearchIcon,
   Sparkles,
   SquareCheck,
   StickyNote,
   Workflow,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import { Kbd, SearchOverlay, StateView, type UIStatus } from '../../design-system';
@@ -38,6 +41,9 @@ function resultIcon(result: SearchResult): LucideIcon {
   if (result.category === 'task') return SquareCheck;
   if (result.category === 'calendar') return CalendarDays;
   if (result.category === 'files') return FolderOpen;
+  if (result.category === 'room') return House;
+  if (result.category === 'device') return Lightbulb;
+  if (result.category === 'scene') return Zap;
   return moduleByPath(result.path)?.icon ?? SearchIcon;
 }
 
@@ -164,7 +170,7 @@ export function UniversalSearch({ open, onOpenChange, onOpenVoice }: UniversalSe
       onOpenChange={onOpenChange}
       value={query}
       onValueChange={setQuery}
-      placeholder="Search pages, automations, chat, knowledge, AI Apps, notes, tasks, calendar, and files…"
+      placeholder="Search pages, automations, chat, knowledge, AI Apps, notes, tasks, calendar, files, and smart home…"
       inputProps={{
         role: 'combobox',
         'aria-expanded': totalCount > 0,
@@ -228,7 +234,7 @@ export function UniversalSearch({ open, onOpenChange, onOpenVoice }: UniversalSe
             ) : (
               <p className="px-1 py-6 text-center text-body-sm text-content-tertiary">
                 Search pages, automations, and your recent chat messages, plus your knowledge base, AI Apps,
-                notes, tasks, calendar, and files.
+                notes, tasks, calendar, files, and smart home rooms, devices, and scenes.
               </p>
             )}
           </div>

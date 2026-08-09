@@ -424,4 +424,171 @@ describe('search service seam', () => {
     expect(groups[0].category).toBe('chat');
     expect(groups[0].results[0].title).toContain('quarterly review');
   });
+
+  // Step 13 — Smart Home (room/device/scene) search categories.
+
+  it('a query matching only a device name returns a categorized "device" group (Step 13)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('fan');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('device');
+    expect(groups[0].label).toBe('Devices');
+    expect(groups[0].results.map((r) => r.title)).toContain('Bedroom Fan');
+    // Every result carries a real navigable path with a deep-link to the item.
+    expect(groups[0].results[0].path).toBe('/smart-home');
+    expect(groups[0].results[0].navState).toEqual({ deviceId: 'dev-bedroom-fan' });
+  });
+
+  it('a query matching only a scene name returns a categorized "scene" group (Step 13)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('movie');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('scene');
+    expect(groups[0].label).toBe('Scenes');
+    expect(groups[0].results.map((r) => r.title)).toContain('Movie Time');
+    expect(groups[0].results[0].path).toBe('/smart-home');
+    expect(groups[0].results[0].navState).toEqual({ sceneId: 'scene-movie-time' });
+  });
+
+  it('a query matching only a scene description returns a categorized "scene" group', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('savings');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('scene');
+    expect(groups[0].results.map((r) => r.title)).toContain('Away Mode');
+  });
+
+  it('a query matching a room legitimately also matches that room\'s devices — honest overlap, not a bug', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    // Device names are prefixed with their room name (e.g. "Outdoor Light"),
+    // so a room-name query naturally also matches its own devices — mirrors
+    // how "Google Calendar" legitimately matches both `calendar` and
+    // `ai-app` (Step 12).
+    const groups = await mockSearchService.search('outdoor');
+
+    const roomGroup = groups.find((g) => g.category === 'room');
+    expect(roomGroup?.results.map((r) => r.title)).toEqual(['Outdoor']);
+    expect(roomGroup?.results[0].path).toBe('/smart-home');
+    expect(roomGroup?.results[0].navState).toEqual({ roomId: 'room-outdoor' });
+
+    const deviceGroup = groups.find((g) => g.category === 'device');
+    expect(deviceGroup?.results.map((r) => r.title).sort()).toEqual(
+      ['Outdoor Light', 'Outdoor Motion Sensor'].sort(),
+    );
+
+    expect(groups.some((g) => g.category === 'scene')).toBe(false);
+  });
+
+  it('a broader query can legitimately span room, device, and scene categories together', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('living');
+
+    const roomGroup = groups.find((g) => g.category === 'room');
+    expect(roomGroup?.results.map((r) => r.title)).toEqual(['Living Room']);
+
+    const deviceGroup = groups.find((g) => g.category === 'device');
+    expect(deviceGroup?.results.map((r) => r.title).sort()).toEqual(
+      ['Living Room Light', 'Living Room Thermostat', 'Living Room Speaker'].sort(),
+    );
+
+    const sceneGroup = groups.find((g) => g.category === 'scene');
+    expect(sceneGroup?.results.map((r) => r.title).sort()).toEqual(['Good Night', 'Movie Time'].sort());
+  });
+
+  it('the Smart Home nav destination is searchable as an "app" group result, alongside pre-existing same-named automation and task entries', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    // "Smart Home" pre-dates this step in two other datasets: the Step 8
+    // automations seed ("Smart Home Evening Routine") and the Step 12 tasks
+    // seed (a task titled "Review Smart Home connectivity PR" tagged with
+    // project "Smart Home"). Adding the Smart Home nav destination and the
+    // room/device/scene categories must not break either — all should
+    // legitimately coexist for this query.
+    const groups = await mockSearchService.search('smart home');
+
+    const appGroup = groups.find((g) => g.category === 'app');
+    expect(appGroup?.results.some((r) => r.title === 'Smart Home' && r.path === '/smart-home')).toBe(true);
+
+    const automationGroup = groups.find((g) => g.category === 'automation');
+    expect(automationGroup?.results.map((r) => r.title)).toContain('Smart Home Evening Routine');
+
+    const taskGroup = groups.find((g) => g.category === 'task');
+    expect(taskGroup?.results.map((r) => r.title)).toContain('Review Smart Home connectivity PR');
+
+    // None of the seeded rooms/devices/scenes themselves are named "Smart
+    // Home", so no room/device/scene group is spuriously produced here.
+    expect(groups.some((g) => g.category === 'room' || g.category === 'device' || g.category === 'scene')).toBe(
+      false,
+    );
+  });
+
+  // Regression: adding the Smart Home categories must not break any
+  // pre-existing search category (Step 8-12). A query that previously
+  // returned exactly one group must still return exactly that, with no
+  // spurious room/device/scene group alongside it.
+  it('regression: automations, knowledge, AI Apps, notes, tasks, calendar, and files search still work correctly after adding the Smart Home categories', async () => {
+    // Seven sequential `search()` calls at ~750-800ms of simulated latency
+    // each comfortably exceed the default 5000ms test timeout (mirrors why
+    // earlier steps' own multi-call regression tests stay well under 5-6
+    // calls) — this one needs an explicit longer timeout rather than either
+    // trimming coverage or reintroducing the exact latency-stacking problem
+    // `search()` itself was fixed to avoid via Promise.all (see
+    // mockSearchAdapter.ts).
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+
+    const automationGroups = await mockSearchService.search('morning');
+    expect(automationGroups.find((g) => g.category === 'automation')?.results.map((r) => r.title)).toContain(
+      'Morning Brief',
+    );
+    expect(
+      automationGroups.some((g) => g.category === 'room' || g.category === 'device' || g.category === 'scene'),
+    ).toBe(false);
+
+    const knowledgeGroups = await mockSearchService.search('checklist');
+    expect(knowledgeGroups.find((g) => g.category === 'knowledge')?.results.map((r) => r.title)).toContain(
+      'Workshop Safety Checklist',
+    );
+    expect(
+      knowledgeGroups.some((g) => g.category === 'room' || g.category === 'device' || g.category === 'scene'),
+    ).toBe(false);
+
+    const aiAppGroups = await mockSearchService.search('sandbox');
+    expect(aiAppGroups.find((g) => g.category === 'ai-app')?.results.map((r) => r.title)).toContain('Code Sandbox');
+
+    const noteGroups = await mockSearchService.search('orb');
+    expect(noteGroups.find((g) => g.category === 'note')?.results.map((r) => r.title)).toContain(
+      'Ideas for Voice Orb redesign',
+    );
+
+    const taskGroups = await mockSearchService.search('roadmap');
+    expect(taskGroups.find((g) => g.category === 'task')?.results.map((r) => r.title)).toContain(
+      'Draft Q3 roadmap review',
+    );
+
+    const calendarGroups = await mockSearchService.search('checkup');
+    expect(calendarGroups.find((g) => g.category === 'calendar')?.results.map((r) => r.title)).toContain(
+      'Dentist checkup',
+    );
+
+    const filesGroups = await mockSearchService.search('budget');
+    expect(filesGroups.find((g) => g.category === 'files')?.results.map((r) => r.title)).toContain(
+      'Household budget.xlsx',
+    );
+  }, 15000);
+
+  it('regression: recent chat search still works alongside the new Smart Home categories', async () => {
+    const { saveMessages } = await import('../../chat/chatStore');
+    saveMessages([
+      { id: 'm1', role: 'user', content: 'Remind me about the quarterly review' },
+      { id: 'm2', role: 'assistant', content: 'Sure thing — quarterly review at 3pm.' },
+    ]);
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('quarterly');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('chat');
+    expect(groups[0].results[0].title).toContain('quarterly review');
+  });
 });

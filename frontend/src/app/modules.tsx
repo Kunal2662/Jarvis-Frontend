@@ -4,6 +4,7 @@ import {
   Calendar,
   Component,
   FolderOpen,
+  House,
   LayoutDashboard,
   Lightbulb,
   type LucideIcon,
@@ -91,10 +92,12 @@ export const modules: ModuleDef[] = [
   { path: '/tasks', label: 'Tasks', icon: SquareCheck, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true, redirectFrom: ['/projects'] },
   { path: '/calendar', label: 'Calendar', icon: Calendar, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
   { path: '/files', label: 'Files', icon: FolderOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
+  { path: '/smart-home', label: 'Smart Home', icon: House, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M12', ready: true },
 
-  // (No remaining 'secondary' + 'planned' placeholder surfaces as of Step 12 —
-  // every secondary module above is live. The next roadmap phase, M12 Smart
-  // Home, will introduce new placeholder entries here.)
+  // (No remaining 'secondary' + 'planned' placeholder surfaces as of Step 13 —
+  // every secondary module above is live. Device Management and Home
+  // Assistant + MQTT, roadmap items 14-15, will introduce new placeholder
+  // entries here in a later step.)
 
   // ── Settings (right cluster, not the main strip) ──
   { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/memory', '/google', '/microsoft', '/diagnostics', '/performance'] },

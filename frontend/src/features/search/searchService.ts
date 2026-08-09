@@ -30,10 +30,14 @@
  *                   events, searched by title/description/location
  *  - 'files'      → the Files mock/local dataset (Step 12) — file/folder
  *                   names only, not folder contents
- * Do not add a category (e.g. Memory, Smart Home) until a real frontend
- * surface/dataset backs it. Intelligence insights are deliberately NOT a
- * search category — they are Core-computed display content, not searchable
- * named entities.
+ *  - 'room'       → the Smart Home mock room set (Step 13) — searched by name
+ *  - 'device'     → the Smart Home mock device set (Step 13) — searched by
+ *                   name/type
+ *  - 'scene'      → the Smart Home mock scene set (Step 13) — searched by
+ *                   name/description
+ * Do not add a category (e.g. Memory) until a real frontend surface/dataset
+ * backs it. Intelligence insights are deliberately NOT a search category —
+ * they are Core-computed display content, not searchable named entities.
  */
 export type SearchResultCategory =
   | 'app'
@@ -44,7 +48,10 @@ export type SearchResultCategory =
   | 'note'
   | 'task'
   | 'calendar'
-  | 'files';
+  | 'files'
+  | 'room'
+  | 'device'
+  | 'scene';
 
 export interface SearchResult {
   id: string;

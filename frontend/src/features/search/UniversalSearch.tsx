@@ -170,7 +170,7 @@ export function UniversalSearch({ open, onOpenChange, onOpenVoice }: UniversalSe
       onOpenChange={onOpenChange}
       value={query}
       onValueChange={setQuery}
-      placeholder="Search pages, automations, chat, knowledge, AI Apps, notes, tasks, calendar, files, and smart home…"
+      placeholder=""
       inputProps={{
         role: 'combobox',
         'aria-expanded': totalCount > 0,

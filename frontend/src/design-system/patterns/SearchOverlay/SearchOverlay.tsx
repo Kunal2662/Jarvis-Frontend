@@ -52,10 +52,11 @@ export function SearchOverlay({
             <Search className="size-5 shrink-0 text-content-tertiary" />
             <input
               autoFocus
+              aria-label="Search"
               value={value}
               onChange={(e) => onValueChange(e.target.value)}
               placeholder={placeholder}
-              className="h-16 w-full bg-transparent text-body-lg text-content placeholder:text-content-tertiary outline-none"
+              className="h-16 w-full bg-transparent text-body-lg text-content placeholder:text-content-tertiary outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
               {...inputProps}
             />
           </div>

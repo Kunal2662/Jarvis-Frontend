@@ -45,7 +45,7 @@ describe('Universal Search wiring + nav', () => {
     await user.click(screen.getByTestId('open-search'));
 
     expect(await screen.findByRole('dialog', { name: 'Search' })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/search pages, automations, chat/i)).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /search/i })).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument();
   });
 

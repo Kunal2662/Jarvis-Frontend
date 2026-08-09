@@ -69,7 +69,7 @@ function renderSearch(props: Partial<React.ComponentProps<typeof UniversalSearch
 }
 
 function getInput() {
-  return screen.getByPlaceholderText(/search pages, automations, chat/i);
+  return screen.getByRole('combobox', { name: /search/i });
 }
 
 beforeEach(() => {

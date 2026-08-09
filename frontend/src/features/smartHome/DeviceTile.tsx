@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Settings } from 'lucide-react';
 import {
   Card,
+  IconButton,
   Input,
   Label,
   Select,
@@ -39,11 +42,19 @@ const FAN_SPEED_LABEL: Record<FanSpeed, string> = { low: 'Low', medium: 'Medium'
  * their value so the slider can be dragged smoothly; it re-syncs from
  * `device.state` whenever the server-confirmed value changes (e.g. after a
  * scene trigger updates this device from elsewhere on the page).
+ *
+ * The "Manage" button is this tile's only link into Device Management
+ * (Step 14, `/smart-home/devices`) — it deep-links there with
+ * `location.state.deviceId` set, mirroring exactly how Universal Search
+ * already deep-links into this page with `state.deviceId` (see
+ * SmartHomePage.tsx's deep-link effect). Everything else about this tile is
+ * unchanged from Step 13.
  */
 export function DeviceTile({ device, pending, highlighted, onCommand }: DeviceTileProps) {
   const Icon = deviceTypeIcon(device.type);
   const online = device.availability === 'online';
   const disabled = pending || !online;
+  const navigate = useNavigate();
 
   const [brightness, setBrightness] = useState(device.state.brightness ?? 0);
   useEffect(() => setBrightness(device.state.brightness ?? 0), [device.state.brightness]);
@@ -68,7 +79,18 @@ export function DeviceTile({ device, pending, highlighted, onCommand }: DeviceTi
             <span className="text-caption text-content-tertiary">{device.type}</span>
           </div>
         </div>
-        <DeviceAvailabilityBadge availability={device.availability} />
+        <div className="flex shrink-0 items-center gap-1">
+          <DeviceAvailabilityBadge availability={device.availability} />
+          <IconButton
+            label={`Manage ${device.name}`}
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/smart-home/devices', { state: { deviceId: device.id } })}
+            data-testid={`device-manage-${device.id}`}
+          >
+            <Settings className="size-4" />
+          </IconButton>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 border-t border-line-subtle pt-3">

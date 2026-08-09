@@ -53,4 +53,11 @@ describe('Smart Home routing + nav', () => {
     }
     expect(screen.queryByRole('navigation', { name: /sidebar/i })).not.toBeInTheDocument();
   });
+
+  it('navigating to /smart-home/devices renders Device Management (not the "coming soon" placeholder)', async () => {
+    renderApp('/smart-home/devices');
+    expect(screen.getByRole('heading', { name: 'Device Management' })).toBeInTheDocument();
+    await screen.findByTestId('device-management-page');
+    expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
+  });
 });

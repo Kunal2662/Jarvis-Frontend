@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { ToastProvider, TooltipProvider } from '../../../design-system';
 import { mockSmartHomeService } from '../adapters/mockSmartHomeAdapter';
@@ -13,6 +13,30 @@ function renderPage(initialEntries: Array<string | { pathname: string; state?: u
       <ToastProvider>
         <MemoryRouter initialEntries={initialEntries}>
           <SmartHomePage />
+        </MemoryRouter>
+      </ToastProvider>
+    </TooltipProvider>,
+  );
+}
+
+function LocationMarker({ testId }: { testId: string }) {
+  const location = useLocation();
+  return <div data-testid={testId}>{JSON.stringify(location.state ?? null)}</div>;
+}
+
+// Renders SmartHomePage plus a real route for `/smart-home/devices` (a
+// LocationMarker, not the real DeviceManagementPage) so a "Manage" click's
+// navigation target and `state` can be asserted the same way
+// UniversalSearch.test.tsx verifies its own deep-links.
+function renderPageWithDevicesRoute() {
+  return render(
+    <TooltipProvider>
+      <ToastProvider>
+        <MemoryRouter initialEntries={['/smart-home']}>
+          <Routes>
+            <Route path="/smart-home" element={<SmartHomePage />} />
+            <Route path="/smart-home/devices" element={<LocationMarker testId="devices-marker" />} />
+          </Routes>
         </MemoryRouter>
       </ToastProvider>
     </TooltipProvider>,
@@ -197,6 +221,27 @@ describe('SmartHomePage', () => {
     await waitFor(() => expect(screen.getByTestId('smart-home-room-filter')).toHaveTextContent('Bedroom'));
     expect(screen.getByTestId('device-tile-dev-bedroom-fan')).toBeInTheDocument();
     expect(screen.queryByTestId('device-tile-dev-kitchen-light')).not.toBeInTheDocument();
+  });
+
+  it('the "Manage devices" header action navigates to Device Management', async () => {
+    renderPageWithDevicesRoute();
+    await screen.findByTestId('smart-home-page');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('smart-home-manage-devices'));
+
+    await screen.findByTestId('devices-marker');
+  });
+
+  it('a device tile\'s "Manage" button deep-links to Device Management with that device\'s id', async () => {
+    renderPageWithDevicesRoute();
+    await screen.findByTestId('device-tile-dev-kitchen-light');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('device-manage-dev-kitchen-light'));
+
+    const marker = await screen.findByTestId('devices-marker');
+    expect(marker).toHaveTextContent('dev-kitchen-light');
   });
 
   it('deep-links to a scene from Universal Search and highlights it', async () => {

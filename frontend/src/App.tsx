@@ -12,6 +12,7 @@ import { TasksPage } from './features/tasks/TasksPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { FilesPage } from './features/files/FilesPage';
 import { SmartHomePage } from './features/smartHome/SmartHomePage';
+import { DeviceManagementPage } from './features/smartHome/DeviceManagementPage';
 import { DesignShowcase } from './pages/DesignShowcase';
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 
@@ -27,6 +28,7 @@ const PAGES = [
   '/calendar',
   '/files',
   '/smart-home',
+  '/smart-home/devices',
   '/design',
 ];
 
@@ -45,6 +47,7 @@ export function App() {
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/files" element={<FilesPage />} />
         <Route path="/smart-home" element={<SmartHomePage />} />
+        <Route path="/smart-home/devices" element={<DeviceManagementPage />} />
         <Route path="/design" element={<DesignShowcase />} />
 
         {/* Placeholder surfaces (Home/Chat/Voice widgets ship in later phases). */}

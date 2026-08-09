@@ -17,13 +17,16 @@
  * Smart Home/Home Assistant/MQTT endpoint; see
  * docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md.
  *
- * Scope note: this is the Command Center only (roadmap Phase 6, item 13) —
- * overview / rooms / devices / inline controls / scenes. Deep per-device
- * settings, pairing and diagnostics (item 14, Device Management) and
- * connector-specific configuration (item 15, Home Assistant + MQTT) are
- * separate, later steps and are intentionally NOT built here. This feature
- * also does not implement an autonomous scene engine — scenes are
- * pre-defined data the frontend displays and triggers, never authored,
+ * Scope note: this is the Command Center (roadmap Phase 6, item 13) —
+ * overview / rooms / devices / inline controls / scenes — PLUS Device
+ * Management (item 14) — per-device rename/room-reassignment, pairing new
+ * simulated devices, and read-only health/diagnostics/connector metadata —
+ * added additively on this same seam (`DeviceManagementPage.tsx`). Connector
+ * configuration (item 15, Home Assistant + MQTT) remains a separate, later
+ * step and is intentionally NOT built here — `connector` below is read-only
+ * display metadata the frontend never uses to call a connector directly.
+ * This feature also does not implement an autonomous scene engine — scenes
+ * are pre-defined data the frontend displays and triggers, never authored,
  * edited, or computed client-side.
  */
 
@@ -67,6 +70,19 @@ export interface DeviceState {
 
 export type DeviceAvailability = 'online' | 'offline' | 'unavailable';
 
+/** Which mock connector "owns" a device — metadata-only, for display in
+ *  Device Management. Never a real integration: the frontend never calls a
+ *  connector directly (see docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md), and
+ *  there is no connector configuration UI here (that is roadmap item 15). */
+export type DeviceConnectorType = 'home_assistant' | 'mqtt' | 'native';
+
+export interface DeviceConnector {
+  type: DeviceConnectorType;
+  /** Opaque id of the device within that connector — display-only, never
+   *  used by the frontend to address the connector. */
+  externalId?: string;
+}
+
 export interface Device {
   id: string;
   name: string;
@@ -76,6 +92,37 @@ export interface Device {
   state: DeviceState;
   availability: DeviceAvailability;
   updatedAt: string;
+  /**
+   * Health/diagnostics/connector metadata for Device Management (roadmap
+   * item 14). All optional and additive to the Command Center's (item 13)
+   * `Device` shape — never fabricated when unknown; absent means "not
+   * reported", rendered honestly as such rather than guessed.
+   */
+  /** 0-100. Only meaningful for battery-powered device types (e.g. Lock,
+   *  Sensor) — omitted for mains-powered devices. */
+  battery?: number;
+  /** 0-100 relative signal strength, connector-agnostic. */
+  signalStrength?: number;
+  firmwareVersion?: string;
+  /** ISO timestamp of this device's last heartbeat/check-in — distinct from
+   *  `updatedAt`, which only tracks state changes. */
+  lastSeenAt?: string;
+  connector?: DeviceConnector;
+}
+
+/** Rename and/or room-reassignment input for `updateDevice` — configuration,
+ *  never a state/command change (that stays on `sendCommand`). */
+export interface UpdateDeviceInput {
+  name?: string;
+  roomId?: string;
+}
+
+/** Input for `pairDevice` — the Device Management "Pair New Device" flow. */
+export interface PairDeviceInput {
+  name: string;
+  roomId: string;
+  type: DeviceType;
+  capabilities: DeviceCapability[];
 }
 
 export interface SceneAction {
@@ -131,6 +178,25 @@ export interface SmartHomeService {
   /** Applies a scene's pre-defined mock state changes and returns the
    *  devices that actually changed (never a fake success list). */
   triggerScene(id: string, signal?: AbortSignal): Promise<Device[]>;
+  /**
+   * Device Management (roadmap item 14): rename and/or reassign a device to
+   * a different room. Configuration only — never touches `state`/
+   * `availability`, which stay owned by `sendCommand`.
+   */
+  updateDevice(id: string, input: UpdateDeviceInput, signal?: AbortSignal): Promise<Device>;
+  /**
+   * Device Management (roadmap item 14): unpair/remove a device permanently.
+   */
+  removeDevice(id: string, signal?: AbortSignal): Promise<void>;
+  /**
+   * Device Management (roadmap item 14): pair/onboard a new simulated
+   * device. A pure UI-feel simulation — no real Bluetooth/Zigbee/WiFi/Home
+   * Assistant/MQTT discovery protocol runs anywhere in this frontend. The
+   * mock adapter simulates a brief "discovering device…" delay noticeably
+   * longer than its normal ~300ms latency before the device is actually
+   * added to the in-memory store.
+   */
+  pairDevice(input: PairDeviceInput, signal?: AbortSignal): Promise<Device>;
   /**
    * Optional light realtime seam. Registers `callback` for state updates to
    * one device and returns an unsubscribe function. The mock adapter fires

@@ -26,11 +26,11 @@ The frontend is intended to become the modern presentation layer for JARVIS Core
 
 Per the authoritative continuation state in `docs/FRONTEND_PROGRESS.md` (§11):
 
-**LAST COMPLETED FRONTEND STEP:** Step 13 — Smart Home Command Center (`/smart-home`, a normalized-entity room/device/scene overview — `Room`/`Device`/`Scene`/`DeviceCapability`/`DeviceCommand` types, never vendor-specific UI — using an in-memory mock adapter (6 rooms, 12 devices, 3 scenes, real state mutation + a light realtime seam) and an unready Core adapter stub, the same seam pattern Automations established. This is the Command Center only — Device Management (item 14) and Home Assistant + MQTT connector configuration (item 15) are separate, later steps not built here. A prominent on-page banner discloses every device is simulated; no command sent affects anything physical. Also became three Universal Search categories (room/device/scene). Real Core M12/Home Assistant/MQTT integration pending — see `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`).
+**LAST COMPLETED FRONTEND STEP:** Step 14 — Device Management (`/smart-home/devices`, extending the Step 13 Command Center additively on the same `SmartHomeService` seam — `updateDevice`/`removeDevice`/`pairDevice`, plus optional never-fabricated health/diagnostics fields on `Device` (`battery`/`signalStrength`/`firmwareVersion`/`lastSeenAt`/`connector`). Per-device rename/room-reassignment, pairing new simulated devices (a pure UI-feel simulation, no real discovery protocol), removal, and a read-only health/diagnostics/connector display, reached via a "Manage devices" action on the Command Center and a per-device "Manage" button on each `DeviceTile`. No connector configuration UI and no real device-discovery protocol — those remain item 15. Real Core M12/Home Assistant/MQTT integration pending — see `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`).
 
-**NEXT FRONTEND STEP:** Step 14 — Device Management (`docs/FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 14 — the next unstarted item after the Step 13 Command Center; Home Assistant + MQTT, item 15, follows it. That phase's own note: "Core connectors exist; frontend integration must use real contracts" — verify the actual Smart Home Core/connector contracts before implementing, per the roadmap's standing rule.).
+**NEXT FRONTEND STEP:** Step 15 — Home Assistant + MQTT (`docs/FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 15 — the next unstarted item after Step 14 Device Management. That phase's own note: "Core connectors exist; frontend integration must use real contracts" — verify the actual Smart Home Core/connector contracts before implementing, per the roadmap's standing rule.).
 
-Do not start Step 14 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
+Do not start Step 15 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
 
 ## Golden rules
 
@@ -179,7 +179,7 @@ The planned order begins:
 8. Knowledge + Intelligence — frontend done (local/static mock adapters), Core integration pending
 9. AI Apps + Integrations — frontend done (in-memory mock adapter, one combined MCP-tool + connector catalog surface), Core integration pending
 10. M11 Productivity — Notes, Tasks + Projects, Calendar, Files + Workspace — frontend done (four independent in-memory mock adapters), Core integration pending
-11. M12 Smart Home — Smart Home Command Center — frontend done (in-memory mock adapter, normalized room/device/scene entities), Core/Home Assistant/MQTT integration pending ← just completed (Step 13); Device Management and Home Assistant + MQTT remain, next up starting with Device Management
+11. M12 Smart Home — Smart Home Command Center (Step 13) + Device Management (Step 14) — frontend done (in-memory mock adapter, normalized room/device/scene entities, additive `updateDevice`/`removeDevice`/`pairDevice` + health/diagnostics on the same seam), Core/Home Assistant/MQTT integration pending ← just completed (Step 14); Home Assistant + MQTT (item 15) remains, next up
 
 Only proceed to the next item after the previous one has been reviewed.
 

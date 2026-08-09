@@ -179,7 +179,16 @@ registered as three additional Universal Search categories. Details in
 in `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`.
 
 ### 14. Device Management
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 14) — extends the Step 13 `SmartHomeService`
+seam additively (`updateDevice`/`removeDevice`/`pairDevice`, plus optional
+health/diagnostics fields on `Device`); in-memory mock adapter, real Core/
+Home Assistant/MQTT integration pending. Per-device rename/room-reassignment,
+pairing new simulated devices, removal, and read-only health/diagnostics/
+connector display at `/smart-home/devices`, reached via a "Manage devices"
+action on the Command Center and a per-device "Manage" button on each
+`DeviceTile`. No connector configuration UI and no real device-discovery
+protocol — those remain item 15's job. Details in `docs/FRONTEND_PROGRESS.md`
+Step 14.
 
 ### 15. Home Assistant + MQTT
 **Status:** 🔴 Placeholder

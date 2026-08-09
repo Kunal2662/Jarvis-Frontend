@@ -3,9 +3,11 @@ import {
   type Device,
   type DeviceCommand,
   type DeviceCommandValue,
+  type PairDeviceInput,
   type Room,
   type Scene,
   type SmartHomeService,
+  type UpdateDeviceInput,
 } from '../smartHomeService';
 
 /**
@@ -54,6 +56,15 @@ export const coreSmartHomeService: SmartHomeService = {
     return unavailable();
   },
   async triggerScene(): Promise<Device[]> {
+    return unavailable();
+  },
+  async updateDevice(_id: string, _input: UpdateDeviceInput): Promise<Device> {
+    return unavailable();
+  },
+  async removeDevice(): Promise<void> {
+    return unavailable();
+  },
+  async pairDevice(_input: PairDeviceInput): Promise<Device> {
     return unavailable();
   },
   /**

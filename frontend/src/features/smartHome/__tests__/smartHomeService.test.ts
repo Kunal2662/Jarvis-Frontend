@@ -43,6 +43,15 @@ describe('Smart Home service seam', () => {
     await expect(coreSmartHomeService.triggerScene('x')).rejects.toBeInstanceOf(
       CoreSmartHomeContractUnavailableError,
     );
+    await expect(coreSmartHomeService.updateDevice('x', {})).rejects.toBeInstanceOf(
+      CoreSmartHomeContractUnavailableError,
+    );
+    await expect(coreSmartHomeService.removeDevice('x')).rejects.toBeInstanceOf(
+      CoreSmartHomeContractUnavailableError,
+    );
+    await expect(
+      coreSmartHomeService.pairDevice({ name: 'x', roomId: 'x', type: 'Light', capabilities: ['power'] }),
+    ).rejects.toBeInstanceOf(CoreSmartHomeContractUnavailableError);
   });
 
   it('the core adapter subscribeToDeviceState returns a no-op unsubscribe and never invokes the callback', async () => {
@@ -244,6 +253,98 @@ describe('Smart Home service seam', () => {
   it('triggerScene rejects for an unknown scene id', async () => {
     const service = await freshMockService();
     await expect(service.triggerScene('does-not-exist')).rejects.toThrow(/not found/i);
+  });
+
+  // ── Mock adapter — Device Management (item 14) ────────────────────────
+
+  it('updateDevice renames a device, trims the name, and leaves room untouched when roomId is omitted', async () => {
+    const service = await freshMockService();
+    const updated = await service.updateDevice('dev-kitchen-plug', { name: '  Kitchen Outlet  ' });
+    expect(updated.name).toBe('Kitchen Outlet');
+    expect(updated.roomId).toBe('room-kitchen');
+    const reread = await service.getDevice('dev-kitchen-plug');
+    expect(reread.name).toBe('Kitchen Outlet');
+  });
+
+  it('updateDevice reassigns a device to a different room', async () => {
+    const service = await freshMockService();
+    const updated = await service.updateDevice('dev-kitchen-plug', { roomId: 'room-bedroom' });
+    expect(updated.roomId).toBe('room-bedroom');
+    expect(updated.name).toBe('Kitchen Smart Plug');
+  });
+
+  it('updateDevice rejects an empty name and an unknown room id', async () => {
+    const service = await freshMockService();
+    await expect(service.updateDevice('dev-kitchen-plug', { name: '   ' })).rejects.toThrow(/empty/i);
+    await expect(service.updateDevice('dev-kitchen-plug', { roomId: 'does-not-exist' })).rejects.toThrow(
+      /not found/i,
+    );
+  });
+
+  it('updateDevice rejects for an unknown device id', async () => {
+    const service = await freshMockService();
+    await expect(service.updateDevice('does-not-exist', { name: 'x' })).rejects.toThrow(/not found/i);
+  });
+
+  it('removeDevice deletes the device so it no longer appears in getDevices/getDevice', async () => {
+    const service = await freshMockService();
+    await service.removeDevice('dev-kitchen-plug');
+    await expect(service.getDevice('dev-kitchen-plug')).rejects.toThrow(/not found/i);
+    const devices = await service.getDevices();
+    expect(devices.some((d) => d.id === 'dev-kitchen-plug')).toBe(false);
+  });
+
+  it('removeDevice rejects for an unknown device id', async () => {
+    const service = await freshMockService();
+    await expect(service.removeDevice('does-not-exist')).rejects.toThrow(/not found/i);
+  });
+
+  it('removeDevice tears down any active subscription for that device', async () => {
+    const service = await freshMockService();
+    const callback = vi.fn();
+    service.subscribeToDeviceState('dev-kitchen-plug', callback);
+    await service.removeDevice('dev-kitchen-plug');
+    // No throw / no further callback invocation possible — the device is gone
+    // and its subscriber entry was cleaned up rather than left dangling.
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('pairDevice adds a new device with sensible per-capability defaults after its simulated discovery delay', async () => {
+    const service = await freshMockService();
+    const before = await service.getDevices();
+
+    const created = await service.pairDevice({
+      name: '  New Hallway Light  ',
+      roomId: 'room-bedroom',
+      type: 'Light',
+      capabilities: ['power', 'brightness'],
+    });
+
+    expect(created.name).toBe('New Hallway Light');
+    expect(created.roomId).toBe('room-bedroom');
+    expect(created.availability).toBe('online');
+    expect(created.state.power).toBe(false);
+    expect(created.state.brightness).toBe(50);
+    expect(created.signalStrength).toBe(100);
+    expect(created.firmwareVersion).toBe('1.0.0');
+
+    const after = await service.getDevices();
+    expect(after.length).toBe(before.length + 1);
+    const persisted = await service.getDevice(created.id);
+    expect(persisted.name).toBe('New Hallway Light');
+  });
+
+  it('pairDevice rejects an empty name, an unknown room, and zero capabilities', async () => {
+    const service = await freshMockService();
+    await expect(
+      service.pairDevice({ name: '  ', roomId: 'room-bedroom', type: 'Light', capabilities: ['power'] }),
+    ).rejects.toThrow(/name/i);
+    await expect(
+      service.pairDevice({ name: 'x', roomId: 'does-not-exist', type: 'Light', capabilities: ['power'] }),
+    ).rejects.toThrow(/not found/i);
+    await expect(
+      service.pairDevice({ name: 'x', roomId: 'room-bedroom', type: 'Light', capabilities: [] }),
+    ).rejects.toThrow(/capability/i);
   });
 
   // ── Mock adapter — realtime seam ──────────────────────────────────────

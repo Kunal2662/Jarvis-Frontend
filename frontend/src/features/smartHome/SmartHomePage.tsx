@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { AlertTriangle, House, Lightbulb, Sparkles, Wifi } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AlertTriangle, House, Lightbulb, Settings, Sparkles, Wifi } from 'lucide-react';
 import {
+  Button,
   EmptyState,
   ModulePage,
   Select,
@@ -51,6 +52,7 @@ function commandVerb(command: DeviceCommand): string {
 export function SmartHomePage() {
   const service = useMemo(() => getSmartHomeService(), []);
   const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const list = useAsync<SmartHomeData>(
@@ -226,6 +228,17 @@ export function SmartHomePage() {
         service.ready
           ? 'Rooms, devices, and scenes. Everything shown here is simulated and local to this frontend session.'
           : `${service.label} — smart home data is not connected yet.`
+      }
+      actions={
+        <Button
+          variant="secondary"
+          leftIcon={<Settings className="size-4" />}
+          onClick={() => navigate('/smart-home/devices')}
+          disabled={!service.ready}
+          data-testid="smart-home-manage-devices"
+        >
+          Manage devices
+        </Button>
       }
       status={pageStatus}
       onRetry={list.reload}

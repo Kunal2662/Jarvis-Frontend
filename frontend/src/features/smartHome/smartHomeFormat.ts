@@ -1,4 +1,9 @@
 import {
+  Battery,
+  BatteryFull,
+  BatteryLow,
+  BatteryMedium,
+  BatteryWarning,
   Bath,
   Bed,
   ChefHat,
@@ -9,7 +14,14 @@ import {
   Lightbulb,
   Lock,
   Moon,
+  Plug,
+  Radio,
+  Router,
   Shield,
+  SignalHigh,
+  SignalLow,
+  SignalMedium,
+  SignalZero,
   Sofa,
   Speaker,
   Sparkles,
@@ -19,7 +31,15 @@ import {
   Fan as FanIcon,
   type LucideIcon,
 } from 'lucide-react';
-import type { DeviceAvailability, DeviceType, RoomIconKey, RoomStatus, SceneIconKey } from './smartHomeService';
+import type {
+  DeviceAvailability,
+  DeviceCapability,
+  DeviceConnectorType,
+  DeviceType,
+  RoomIconKey,
+  RoomStatus,
+  SceneIconKey,
+} from './smartHomeService';
 
 /** Shared, presentation-only formatting helpers for the Smart Home feature —
  *  mirrors automationFormat.ts / aiAppsFormat.ts. All icon mappings here are
@@ -100,3 +120,79 @@ export const AVAILABILITY_BADGE_VARIANT: Record<DeviceAvailability, 'success' | 
   offline: 'neutral',
   unavailable: 'danger',
 };
+
+// ── Device Management (item 14) — additive formatting helpers ────────────
+// Presentation-only, mirrors the rest of this file. Health/diagnostics
+// fields are always shown as "Not reported" rather than fabricated when
+// absent, and are always paired with an icon + text — never color alone.
+
+export const CAPABILITY_LABEL: Record<DeviceCapability, string> = {
+  power: 'Power',
+  brightness: 'Brightness',
+  temperature: 'Temperature',
+  fan_speed: 'Fan speed',
+  lock: 'Lock',
+  media: 'Media',
+  sensor: 'Sensor reading',
+};
+
+/** Sensible default capabilities to pre-select in the "Pair New Device" form
+ *  when a device type is chosen — mirrors what the seeded devices of that
+ *  type already have. The user can still toggle any capability; this is
+ *  only a starting suggestion, never enforced. */
+export const DEFAULT_CAPABILITIES_BY_TYPE: Record<DeviceType, DeviceCapability[]> = {
+  Light: ['power', 'brightness'],
+  Thermostat: ['temperature'],
+  Fan: ['power', 'fan_speed'],
+  Lock: ['lock'],
+  Speaker: ['power', 'media'],
+  Sensor: ['sensor'],
+  Switch: ['power'],
+};
+
+export const CONNECTOR_LABEL: Record<DeviceConnectorType, string> = {
+  home_assistant: 'Home Assistant',
+  mqtt: 'MQTT',
+  native: 'Native',
+};
+
+const CONNECTOR_ICON: Record<DeviceConnectorType, LucideIcon> = {
+  home_assistant: Router,
+  mqtt: Radio,
+  native: Plug,
+};
+
+export function connectorIcon(type: DeviceConnectorType): LucideIcon {
+  return CONNECTOR_ICON[type];
+}
+
+export function formatBattery(battery?: number): string {
+  return typeof battery === 'number' ? `${battery}%` : 'Not reported';
+}
+
+export function batteryIcon(battery?: number): LucideIcon {
+  if (typeof battery !== 'number') return Battery;
+  if (battery <= 15) return BatteryWarning;
+  if (battery <= 40) return BatteryLow;
+  if (battery <= 75) return BatteryMedium;
+  return BatteryFull;
+}
+
+export function formatSignal(signal?: number): string {
+  return typeof signal === 'number' ? `${signal}%` : 'Not reported';
+}
+
+export function signalIcon(signal?: number): LucideIcon {
+  if (typeof signal !== 'number') return SignalZero;
+  if (signal <= 25) return SignalLow;
+  if (signal <= 60) return SignalMedium;
+  return SignalHigh;
+}
+
+export function formatFirmware(version?: string): string {
+  return version && version.trim() ? version : 'Not reported';
+}
+
+export function formatLastSeen(iso?: string): string {
+  return iso ? formatDateTime(iso) : 'Not reported';
+}

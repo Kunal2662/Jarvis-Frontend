@@ -40,6 +40,9 @@ function baseService(overrides: Partial<SmartHomeService>): SmartHomeService {
     sendCommand: vi.fn(),
     getScenes: vi.fn().mockResolvedValue([]),
     triggerScene: vi.fn(),
+    updateDevice: vi.fn(),
+    removeDevice: vi.fn(),
+    pairDevice: vi.fn(),
     subscribeToDeviceState: vi.fn().mockReturnValue(() => {}),
     ...overrides,
   };

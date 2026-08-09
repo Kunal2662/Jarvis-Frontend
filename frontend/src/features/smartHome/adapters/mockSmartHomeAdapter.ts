@@ -3,21 +3,29 @@ import type {
   DeviceCapability,
   DeviceCommand,
   DeviceCommandValue,
+  DeviceState,
+  PairDeviceInput,
   Room,
   RoomStatus,
   Scene,
   SmartHomeService,
+  UpdateDeviceInput,
 } from '../smartHomeService';
 
 /**
- * Frontend in-memory mock adapter for the Smart Home Command Center. All
- * seed data + mutation logic lives HERE, separated from presentation.
- * Simulates realistic network latency so loading states are exercised, and
- * mutates real in-memory state so the UI is fully interactive (not static).
- * A future Core adapter can replace this wholesale — no UI change required.
+ * Frontend in-memory mock adapter for the Smart Home Command Center (item 13)
+ * and, additively, Device Management (item 14): rename/room-reassignment
+ * (`updateDevice`), unpair (`removeDevice`), and pairing new simulated
+ * devices (`pairDevice`). All seed data + mutation logic lives HERE,
+ * separated from presentation. Simulates realistic network latency so
+ * loading states are exercised, and mutates real in-memory state so the UI
+ * is fully interactive (not static). A future Core adapter can replace this
+ * wholesale — no UI change required.
  *
  * These are simulated devices only. No real hardware, Home Assistant
- * instance, or MQTT broker is contacted anywhere in this file.
+ * instance, or MQTT broker is contacted anywhere in this file, and
+ * `pairDevice` runs no real Bluetooth/Zigbee/WiFi/mDNS discovery protocol —
+ * its "discovering device…" delay is a pure UI-feel `setTimeout` simulation.
  */
 
 function delay<T>(value: T, ms = 300): Promise<T> {
@@ -50,6 +58,15 @@ const ROOM_SEEDS: Array<Omit<Room, 'deviceCount' | 'status'>> = [
 const DRIFT_DEVICE_ID = 'dev-bedroom-sensor';
 const DRIFT_INTERVAL_MS = 4000;
 
+/** Device Management (item 14) — `pairDevice`'s "discovering device…" delay.
+ *  Deliberately much longer than the ~300ms latency every other call in
+ *  this adapter uses, so pairing visibly feels like a real onboarding flow.
+ *  Still a pure UI-feel simulation — no real Bluetooth/Zigbee/WiFi/Home
+ *  Assistant/MQTT discovery protocol runs anywhere in this file. */
+const PAIR_DEVICE_DELAY_MS = 1500;
+
+let pairedDeviceSeq = 0;
+
 let devices: Device[] = [
   {
     id: 'dev-living-light',
@@ -60,6 +77,12 @@ let devices: Device[] = [
     state: { power: true, brightness: 70 },
     availability: 'online',
     updatedAt: '2026-08-08T21:00:00-04:00',
+    // Device Management (item 14) health/diagnostics/connector metadata —
+    // additive, display-only, never fabricated when unknown.
+    signalStrength: 88,
+    firmwareVersion: '2.4.1',
+    lastSeenAt: '2026-08-08T21:00:00-04:00',
+    connector: { type: 'home_assistant', externalId: 'light.living_room' },
   },
   {
     id: 'dev-living-thermostat',
@@ -70,6 +93,10 @@ let devices: Device[] = [
     state: { temperature: 21 },
     availability: 'online',
     updatedAt: '2026-08-08T21:00:00-04:00',
+    signalStrength: 95,
+    firmwareVersion: '1.9.0',
+    lastSeenAt: '2026-08-08T21:04:00-04:00',
+    connector: { type: 'native' },
   },
   {
     id: 'dev-living-speaker',
@@ -80,6 +107,10 @@ let devices: Device[] = [
     state: { power: false },
     availability: 'online',
     updatedAt: '2026-08-08T18:30:00-04:00',
+    signalStrength: 80,
+    firmwareVersion: '3.1.2',
+    lastSeenAt: '2026-08-08T18:32:00-04:00',
+    connector: { type: 'mqtt', externalId: 'jarvis/living-room/speaker' },
   },
   {
     id: 'dev-bedroom-light',
@@ -90,6 +121,10 @@ let devices: Device[] = [
     state: { power: true, brightness: 35 },
     availability: 'online',
     updatedAt: '2026-08-08T22:00:00-04:00',
+    signalStrength: 90,
+    firmwareVersion: '2.4.1',
+    lastSeenAt: '2026-08-08T22:00:00-04:00',
+    connector: { type: 'home_assistant', externalId: 'light.bedroom' },
   },
   {
     id: 'dev-bedroom-fan',
@@ -100,6 +135,10 @@ let devices: Device[] = [
     state: { power: true, fanSpeed: 'medium' },
     availability: 'online',
     updatedAt: '2026-08-08T22:00:00-04:00',
+    signalStrength: 70,
+    firmwareVersion: '1.0.4',
+    lastSeenAt: '2026-08-08T22:00:00-04:00',
+    connector: { type: 'native' },
   },
   {
     id: DRIFT_DEVICE_ID,
@@ -110,6 +149,12 @@ let devices: Device[] = [
     state: { sensorValue: { label: 'Temperature', value: '21.5°C' } },
     availability: 'online',
     updatedAt: '2026-08-08T22:00:00-04:00',
+    // Battery-relevant device type (Sensor) — a plausible mid-level reading.
+    battery: 62,
+    signalStrength: 55,
+    firmwareVersion: '0.9.8',
+    lastSeenAt: '2026-08-08T22:00:00-04:00',
+    connector: { type: 'mqtt', externalId: 'jarvis/bedroom/temp-sensor' },
   },
   {
     id: 'dev-kitchen-light',
@@ -120,6 +165,10 @@ let devices: Device[] = [
     state: { power: true },
     availability: 'online',
     updatedAt: '2026-08-08T19:00:00-04:00',
+    signalStrength: 92,
+    firmwareVersion: '2.4.1',
+    lastSeenAt: '2026-08-08T19:01:00-04:00',
+    connector: { type: 'native' },
   },
   {
     id: 'dev-kitchen-plug',
@@ -130,6 +179,12 @@ let devices: Device[] = [
     state: { power: false },
     availability: 'online',
     updatedAt: '2026-08-08T09:00:00-04:00',
+    signalStrength: 75,
+    firmwareVersion: '1.2.0',
+    lastSeenAt: '2026-08-08T09:02:00-04:00',
+    // Connector intentionally omitted here — exercises the "not reported /
+    // defaults to Native" display path honestly, distinct from an explicit
+    // `{ type: 'native' }`.
   },
   {
     id: 'dev-bathroom-light',
@@ -141,6 +196,12 @@ let devices: Device[] = [
     // Exercises the 'offline' availability state end-to-end.
     availability: 'offline',
     updatedAt: '2026-08-07T08:00:00-04:00',
+    // Degraded health to match its offline status: weak last-known signal,
+    // stale heartbeat, no battery reading (mains-powered device type).
+    signalStrength: 14,
+    firmwareVersion: '2.1.0',
+    lastSeenAt: '2026-08-05T03:12:00-04:00',
+    connector: { type: 'native' },
   },
   {
     id: 'dev-entrance-lock',
@@ -151,6 +212,12 @@ let devices: Device[] = [
     state: { locked: true },
     availability: 'online',
     updatedAt: '2026-08-08T22:15:00-04:00',
+    // Battery-relevant device type (Lock).
+    battery: 41,
+    signalStrength: 68,
+    firmwareVersion: '4.0.1',
+    lastSeenAt: '2026-08-08T22:16:00-04:00',
+    connector: { type: 'home_assistant', externalId: 'lock.entrance_door' },
   },
   {
     id: 'dev-entrance-light',
@@ -161,6 +228,10 @@ let devices: Device[] = [
     state: { power: false, brightness: 0 },
     availability: 'online',
     updatedAt: '2026-08-08T22:15:00-04:00',
+    signalStrength: 91,
+    firmwareVersion: '2.4.1',
+    lastSeenAt: '2026-08-08T22:16:00-04:00',
+    connector: { type: 'native' },
   },
   {
     id: 'dev-outdoor-light',
@@ -171,6 +242,10 @@ let devices: Device[] = [
     state: { power: true },
     availability: 'online',
     updatedAt: '2026-08-08T20:00:00-04:00',
+    signalStrength: 60,
+    firmwareVersion: '2.3.0',
+    lastSeenAt: '2026-08-08T20:02:00-04:00',
+    // Connector intentionally omitted, like dev-kitchen-plug.
   },
   {
     id: 'dev-outdoor-sensor',
@@ -182,6 +257,13 @@ let devices: Device[] = [
     // Exercises the 'unavailable' availability state end-to-end.
     availability: 'unavailable',
     updatedAt: '2026-08-06T12:00:00-04:00',
+    // Similarly degraded: critically low battery (plausibly why it went
+    // unavailable), weak last-known signal, stale heartbeat.
+    battery: 6,
+    signalStrength: 9,
+    firmwareVersion: '0.9.5',
+    lastSeenAt: '2026-08-06T12:05:00-04:00',
+    connector: { type: 'mqtt', externalId: 'jarvis/outdoor/motion-sensor' },
   },
 ];
 
@@ -266,6 +348,31 @@ function requireScene(id: string): SceneSeed {
   const found = scenes.find((s) => s.id === id);
   if (!found) throw new Error(`Scene "${id}" was not found.`);
   return found;
+}
+
+/** Device Management (item 14): rooms are still the fixed seeded set — this
+ *  step adds no room creation UI, only validates a target room id exists. */
+function requireRoomId(roomId: string): void {
+  if (!ROOM_SEEDS.some((r) => r.id === roomId)) {
+    throw new Error(`Room "${roomId}" was not found.`);
+  }
+}
+
+/** Sensible default state for a freshly paired device, mirroring how the
+ *  seeded devices above default per capability (e.g. brightness/temperature
+ *  land mid-range, a new lock defaults locked, a new sensor has no reading
+ *  yet). Never fabricates a plausible-looking sensor value out of thin air —
+ *  a brand-new sensor reports "no reading yet" until it would actually
+ *  report one. */
+function defaultStateForCapabilities(capabilities: DeviceCapability[]): DeviceState {
+  const state: DeviceState = {};
+  if (capabilities.includes('power')) state.power = false;
+  if (capabilities.includes('brightness')) state.brightness = 50;
+  if (capabilities.includes('temperature')) state.temperature = 21;
+  if (capabilities.includes('fan_speed')) state.fanSpeed = 'low';
+  if (capabilities.includes('lock')) state.locked = true;
+  if (capabilities.includes('sensor')) state.sensorValue = { label: 'Reading', value: 'No reading yet' };
+  return state;
 }
 
 function computeRoomStatus(roomDevices: Device[]): RoomStatus {
@@ -456,6 +563,78 @@ export const mockSmartHomeService: SmartHomeService = {
       changed.push(updated);
     }
     return withAbort(signal, changed.map(clone), 400);
+  },
+
+  // ── Device Management (item 14) ───────────────────────────────────────
+
+  async updateDevice(id: string, input: UpdateDeviceInput, signal?: AbortSignal): Promise<Device> {
+    const device = requireDevice(id);
+    let name = device.name;
+    if (input.name !== undefined) {
+      const trimmed = input.name.trim();
+      if (!trimmed) throw new Error('Device name cannot be empty.');
+      name = trimmed;
+    }
+    let roomId = device.roomId;
+    if (input.roomId !== undefined) {
+      requireRoomId(input.roomId);
+      roomId = input.roomId;
+    }
+    const updated: Device = { ...device, name, roomId, updatedAt: new Date().toISOString() };
+    devices = devices.map((d) => (d.id === id ? updated : d));
+    notify(id, updated);
+    return withAbort(signal, clone(updated), 300);
+  },
+
+  async removeDevice(id: string, signal?: AbortSignal): Promise<void> {
+    requireDevice(id);
+    devices = devices.filter((d) => d.id !== id);
+    // Clean up any active realtime subscriptions for this device id so the
+    // subscription map (and, for the drift device, its interval) never
+    // leaks — reuses the exact same teardown the unsubscribe function
+    // already performs above, just triggered by removal instead.
+    subscribers.delete(id);
+    if (id === DRIFT_DEVICE_ID) maybeStopDriftInterval();
+    await withAbort<undefined>(signal, undefined, 300);
+  },
+
+  async pairDevice(input: PairDeviceInput, signal?: AbortSignal): Promise<Device> {
+    const name = input.name.trim();
+    if (!name) throw new Error('Device name is required.');
+    requireRoomId(input.roomId);
+    if (input.capabilities.length === 0) throw new Error('At least one capability is required.');
+
+    // Simulated "discovering device…" delay — noticeably longer than this
+    // adapter's normal ~300ms latency (see PAIR_DEVICE_DELAY_MS). Purely a
+    // UI-feel simulation via setTimeout; no real discovery protocol of any
+    // kind runs here. The device is only added to the store once discovery
+    // "completes" below, mirroring what a real pairing flow would feel
+    // like (not found until discovery finishes).
+    await delay(undefined, PAIR_DEVICE_DELAY_MS);
+    if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
+
+    pairedDeviceSeq += 1;
+    const now = new Date().toISOString();
+    const capabilities = [...input.capabilities];
+    const device: Device = {
+      id: `dev-paired-${pairedDeviceSeq}`,
+      name,
+      roomId: input.roomId,
+      type: input.type,
+      capabilities,
+      state: defaultStateForCapabilities(capabilities),
+      availability: 'online',
+      updatedAt: now,
+      lastSeenAt: now,
+      // A freshly paired device reports full battery/signal and factory
+      // firmware — plausible, not fabricated (this mock owns these values).
+      battery: capabilities.includes('lock') || input.type === 'Sensor' ? 100 : undefined,
+      signalStrength: 100,
+      firmwareVersion: '1.0.0',
+      connector: { type: 'native' },
+    };
+    devices = [...devices, device];
+    return clone(device);
   },
 
   subscribeToDeviceState(deviceId: string, callback: (device: Device) => void): () => void {

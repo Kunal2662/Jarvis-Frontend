@@ -980,6 +980,97 @@ frontend must never bypass that) and are pending a verified Core contract
 
 ---
 
+## Step 14 — Device Management
+
+**Status: COMPLETE — frontend using the same in-memory mock adapter as Step 13; Core/Home Assistant/MQTT integration pending**
+
+Per the roadmap (Phase 6, item 14 "Device Management" — the second of three
+separate M12 items, scoped by `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`'s
+"out of scope for item 13" list as "deep per-device settings,
+pairing/onboarding new devices, firmware/diagnostics, device renaming or
+reassignment between rooms"), this step extends the Step 13 Command Center
+**additively on the same `SmartHomeService` seam** rather than introducing a
+second service — the contract doc's own open question (§12, "a separate
+`DeviceManagementService`?") was resolved in favor of one seam, consistent
+with `JARVIS_FRONTEND_ARCHITECTURE.md`'s "do not build a second
+smart-home protocol engine" rule and this project's "do not duplicate
+existing services" rule.
+
+Architecture:
+
+```text
+SmartHomePage (Step 13)              DeviceManagementPage (Step 14)
+  │  "Manage devices" action  ──────────────►  same page, /smart-home/devices
+  │  DeviceTile "Manage" button (per device) ─►  opens that device's drawer
+  ▼                                            ▼
+              SmartHomeService (one seam, extended additively)
+                            ▼
+     Mock Smart Home Adapter (in-memory) / Future Core Adapter
+```
+
+Implemented:
+
+- `smartHomeService.ts` — three new seam methods (`updateDevice`,
+  `removeDevice`, `pairDevice`) alongside the Step 13 methods, plus optional,
+  additive, never-fabricated health/diagnostics fields on `Device`
+  (`battery?`, `signalStrength?`, `firmwareVersion?`, `lastSeenAt?`,
+  `connector?: { type: 'home_assistant' | 'mqtt' | 'native'; externalId? }`).
+  A missing field always renders as "Not reported", never a guessed value.
+  `connector` is read-only display metadata — the frontend never calls a
+  connector directly; connector *configuration* remains item 15
+- `adapters/mockSmartHomeAdapter.ts` — `updateDevice` (rename/room-reassign,
+  trims and validates the name, validates the target room exists),
+  `removeDevice` (deletes the device and tears down any active
+  `subscribeToDeviceState` subscription so nothing leaks), `pairDevice`
+  (validates name/room/capabilities, then a simulated ~1.5s "discovering
+  device…" delay — noticeably longer than this adapter's normal ~300ms
+  latency — before adding the device with sensible per-capability default
+  state and full battery/signal/factory-firmware values). Every one of the
+  12 seeded devices from Step 13 got additive health/diagnostics/connector
+  metadata (2 devices intentionally omit `connector` to exercise the
+  "not reported" display path honestly)
+- `adapters/coreSmartHomeAdapter.ts` — the three new methods added as
+  unimplemented stubs consistent with every other method (`ready: false`,
+  rejects with `CoreSmartHomeContractUnavailableError`); no Core Device
+  Management endpoint invented
+- `DeviceManagementPage.tsx` (new route `/smart-home/devices`) — a
+  `List`/`ListRow`-based device list (`DeviceManagementRow.tsx`, a better
+  fit for a management list than the Command Center's card grid) with a
+  text filter, a room filter, and stat cards (Devices/Online/Needs
+  attention/Low battery); clicking a row opens `DeviceManagementDrawer.tsx`
+  (capabilities, a read-only current-state summary — control stays on the
+  Command Center — `DeviceHealthSummary.tsx`'s battery/signal/firmware/
+  last-seen/connector display, and a rename + room-reassign form); a
+  "Pair new device" action opens `PairDeviceForm.tsx` in a modal
+  (name/room/type/capabilities, type-based capability defaults that stay
+  fully editable, the simulated discovering-device state surfaced visibly
+  while `pairDevice` is in flight); removing a device goes through an
+  explicit confirm dialog. The same prominent simulation-disclosure banner
+  pattern from Step 13 is repeated here
+- Two entry points into Device Management, both deep-linking via
+  `location.state.deviceId` (mirrors the Step 13/Universal Search
+  deep-link pattern): a new "Manage devices" header action on
+  `SmartHomePage.tsx`, and a new per-device "Manage" icon button on
+  `DeviceTile.tsx` (opens that specific device's drawer directly)
+- Routing: `/smart-home/devices` wired in `App.tsx` alongside `/smart-home`;
+  not a new `app/modules.tsx` entry (it is reached only via the two
+  in-page entry points above, not a nav/search destination of its own)
+- No connector configuration UI, no real device-discovery protocol of any
+  kind (`pairDevice` is a pure UI-feel `setTimeout` simulation — no
+  Bluetooth/Zigbee/WiFi/mDNS/Home Assistant/MQTT discovery runs anywhere in
+  this frontend), and rooms remain the fixed Step 13 seeded set (no room
+  creation UI) — all per `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`'s
+  scope boundary for this item
+
+**Device Management is mock/local to this frontend session only**, the same
+as Step 13 — a full page reload resets every rename/pair/remove back to the
+Step 13 seed data, since nothing is persisted outside this browser tab's
+memory. Real pairing/onboarding, device configuration persistence, and
+health/diagnostics telemetry remain owned by JARVIS Core and are pending a
+verified Core contract.
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -1135,6 +1226,15 @@ Important implemented areas in this checkpoint include:
 - `features/files/__tests__/`
 - `design-system/composites/Breadcrumb/Breadcrumb.tsx` (pre-existing, previously unused; small additive keyboard-accessibility fix in this step)
 
+### Smart Home (Command Center + Device Management)
+
+- `features/smartHome/SmartHomePage.tsx` (Step 13 Command Center; Step 14 added the "Manage devices" header action)
+- `features/smartHome/DeviceManagementPage.tsx`, `DeviceManagementRow.tsx`, `DeviceManagementDrawer.tsx`, `DeviceHealthSummary.tsx`, `PairDeviceForm.tsx` (Step 14)
+- `features/smartHome/smartHomeService.ts`, `smartHomeFormat.ts`
+- `features/smartHome/adapters/mockSmartHomeAdapter.ts`, `adapters/coreSmartHomeAdapter.ts`
+- `features/smartHome/RoomCard.tsx`, `DeviceTile.tsx` (Step 14 added its "Manage" deep-link button), `SceneCard.tsx`, `DeviceAvailabilityBadge.tsx`, `RoomStatusBadge.tsx`
+- `features/smartHome/__tests__/`
+
 ### Navigation
 
 - `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
@@ -1145,10 +1245,14 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–13 were green:
+The latest reported frontend gates for the completed Steps 1–14 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **PASS** — 346/346 tests across 44 files (all 292 Step 0–12 tests still pass, plus 54 new for Step 13 — Smart Home Command Center and its three Universal Search categories):
+- Vitest: **PASS** — 365/365 tests across 45 files (all 346 Step 0–13 tests still pass, plus 19 new for Step 14 — Device Management):
+  - Smart Home + Device Management (65 across 5 files): `smartHomeService.test.ts` (+9 — `updateDevice` rename/trim/room-reassign + empty-name/unknown-room/unknown-device rejections, `removeDevice` deleting the device + tearing down its subscription + unknown-device rejection, `pairDevice` adding a device with sensible per-capability defaults after its simulated discovery delay + empty-name/unknown-room/zero-capability rejections, plus the existing core-adapter-not-ready test extended to cover all three new methods), `DeviceManagementPage.test.tsx` (new, 7 — the device list + stat cards + simulation banner, search/room filtering, opening the management drawer with capabilities/state/health-diagnostics, rename + room-reassign end to end, remove-with-confirm end to end, pair-new-device end to end including the visible "discovering device…" state, deep-linking to a specific device's drawer), `SmartHomePage.test.tsx` (+2 — the new "Manage devices" header action and a `DeviceTile`'s "Manage" button each correctly deep-link to `/smart-home/devices`), `routing.test.tsx` (+1 — `/smart-home/devices` renders `DeviceManagementPage`, not a placeholder)
+  - Note: as with prior steps, running the full suite with Vitest's default parallel worker pool can produce intermittent timeout flakes in unrelated tests under CPU contention on this development machine (Automations/Calendar/Tasks/AI Apps/Files/Knowledge routing tests and a couple of Smart Home deep-link tests were all observed flaking transiently, none of them a real regression); every test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`, which is what was used to produce the 365/365 result above.
+
+Prior to Step 14, Steps 1–13 gates (346/346 tests across 44 files) were also green:
   - Smart Home (39 across 4 files): `smartHomeService.test.ts` (mock adapter rooms/devices/scenes, `sendCommand` mutating real state per capability, `triggerScene` skipping offline/unavailable devices and returning only devices that actually changed, the seeded offline + unavailable devices, `subscribeToDeviceState` firing on genuine changes plus the single simulated-drift sensor, core-adapter-not-ready rejecting every method), `SmartHomePage.test.tsx` (room overview, device grid with capability-specific controls incl. toggling a power switch and confirming the tile updates, triggering a scene and confirming affected device tiles update, the prominent simulation-disclosure banner), `SmartHomePageStates.test.tsx` (loading/empty/error+retry/unavailable), `routing.test.tsx` (live secondary module, not a 5th primary nav item, real page renders not a placeholder, primary nav/no-sidebar invariant)
   - `features/search/__tests__/searchService.test.ts` (net +15): Rooms/Devices/Scenes are each searchable as their own categorized group with working deep-link `navState` (`roomId`/`deviceId`/`sceneId`), and regression tests confirm every pre-existing category (app/nav, automation, knowledge, ai-app, note, task, calendar, files, chat) keeps working correctly alongside the three new ones.
   - Note: as with prior steps, running the full suite with Vitest's default parallel worker pool can produce intermittent timeout flakes in unrelated tests under CPU contention on this development machine; every test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`, which is what was used to produce the 346/346 result above.
@@ -1188,8 +1292,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 14 | Calendar frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
 | 15 | Files + Workspace frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
 | 16 | Smart Home Command Center | 🟢 Complete (in-memory mock adapter; Core/Home Assistant/MQTT integration pending) |
-| 17 | Device Management / Connectivity UI | 🔴 Placeholder ← next |
-| 18 | Home Assistant + MQTT frontend integration | 🔴 Placeholder / Core-contract dependent |
+| 17 | Device Management / Connectivity UI | 🟢 Complete (in-memory mock adapter, extends the Step 13 seam additively; Core/Home Assistant/MQTT integration pending) |
+| 18 | Home Assistant + MQTT frontend integration | 🔴 Placeholder / Core-contract dependent ← next |
 | 19 | Memory frontend | 🔴 Placeholder / contract dependent |
 | 20 | Agents frontend | 🔴 Placeholder |
 | 21 | Settings frontend | 🔴 Placeholder |
@@ -1221,7 +1325,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Tasks → real persistence/sync (frontend currently ships an in-memory mock adapter only — see `docs/CORE_TASKS_CONTRACT_REQUIRED.md`)
 - Calendar → real persistence/timezone contract (frontend currently ships an in-memory mock adapter only, local-naive datetimes with no timezone model — see `docs/CORE_CALENDAR_CONTRACT_REQUIRED.md`)
 - Files → real storage/upload (frontend currently ships an in-memory, metadata-only mock adapter only — no real file bytes exist anywhere in this frontend — see `docs/CORE_FILES_CONTRACT_REQUIRED.md`)
-- Smart Home → real device discovery/command execution/realtime state via Home Assistant/MQTT connectors (frontend currently ships an in-memory mock adapter only, normalized entities, no vendor-specific UI — see `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`)
+- Smart Home + Device Management → real device discovery/command execution/realtime state via Home Assistant/MQTT connectors, real pairing/onboarding, and real health/diagnostics telemetry (frontend currently ships an in-memory mock adapter only, normalized entities, no vendor-specific UI, no real discovery protocol — see `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`)
 - Memory → real memory service
 
 These should not be implemented as fake backend systems in React.
@@ -1260,7 +1364,8 @@ Do not redo:
 - Calendar foundation (`CalendarService` seam, the day-grouped agenda UI — not a month-grid widget, and not a Google Calendar/Microsoft 365 client)
 - Files foundation (`FilesService` seam, the folder-navigation + breadcrumb UI, the metadata-only "no real storage" scope)
 - Smart Home foundation (`SmartHomeService` seam, the normalized Room/Device/Scene entities, the room-overview + device-grid + scenes Command Center UI, the prominent simulation-disclosure banner)
-- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home stay secondary/command-palette surfaces — none of these are a 5th nav item)
+- Device Management foundation (the same `SmartHomeService` seam extended additively with `updateDevice`/`removeDevice`/`pairDevice` and the optional health/diagnostics `Device` fields — do not introduce a second `DeviceManagementService`; the `/smart-home/devices` list + drawer + pair-device UI)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management stay secondary/command-palette surfaces — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -1277,10 +1382,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–13.
+8. Do not redo Steps 0–14.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Step 14 — Device Management** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 14 — the next unstarted item after the Step 13 Command Center; Home Assistant + MQTT, item 15, follows it. Verify the real Smart Home Core/connector contracts before implementing — that phase's own note says Core connectors already exist, so frontend integration must use real contracts, not a new mock).
+11. Continue from **Step 15 — Home Assistant + MQTT** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 15 — the next unstarted item after Step 14 Device Management. Verify the real Smart Home Core/connector contracts before implementing — that phase's own note says Core connectors already exist, so frontend integration must use real contracts, not a new mock).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -1293,9 +1398,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 13 — Smart Home Command Center (in-memory mock adapter; Core/Home Assistant/MQTT integration pending)
+**LAST COMPLETED FRONTEND STEP:** Step 14 — Device Management (in-memory mock adapter, extends the Step 13 `SmartHomeService` seam additively; Core/Home Assistant/MQTT integration pending)
 
-**NEXT FRONTEND STEP:** Step 14 — Device Management (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 14 — the next unstarted item after the Command Center; Home Assistant + MQTT, item 15, follows it)
+**NEXT FRONTEND STEP:** Step 15 — Home Assistant + MQTT (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 15 — the next unstarted item after Step 14 Device Management)
 
 **CURRENT PRODUCT STATE:**
 
@@ -1316,10 +1421,11 @@ A new Emergent workspace/account or coding agent should:
 - Calendar: complete as a day-grouped agenda frontend surface using an in-memory mock adapter — JARVIS's own local calendar, not a Google Calendar/Microsoft 365 client (Core persistence + timezone contract pending)
 - Files: complete as a metadata-only file/folder browser frontend surface using an in-memory mock adapter — no real storage/upload/preview (Core storage/upload contract pending)
 - Smart Home: complete as a normalized-entity Command Center frontend surface (rooms, devices, inline controls, scenes) using an in-memory mock adapter — no vendor-specific UI, no real hardware/Home Assistant/MQTT contacted (Core Smart Home/connector integration pending)
+- Device Management: complete as a per-device rename/room-reassignment, pairing, removal, and read-only health/diagnostics/connector frontend surface at `/smart-home/devices`, extending the Smart Home `SmartHomeService` seam additively using the same in-memory mock adapter — no connector configuration UI, no real device-discovery protocol (Core Smart Home/connector integration pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START STEP 14 automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START STEP 15 automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

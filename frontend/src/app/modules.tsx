@@ -1,67 +1,129 @@
 import {
-  Activity,
-  Blocks,
+  BookOpen,
   Bot,
-  Brain,
   Calendar,
   Component,
-  FolderKanban,
   FolderOpen,
-  Gauge,
-  Globe,
+  House,
   LayoutDashboard,
+  Lightbulb,
   type LucideIcon,
-  Mail,
   MessageSquare,
   Mic,
-  Network,
   Settings,
-  SquareCheck,
   Sparkles,
+  SquareCheck,
+  StickyNote,
   Workflow,
 } from 'lucide-react';
 
+/**
+ * Where a surface is reachable from.
+ * - 'topbar'    → the lean PRIMARY nav strip (current / live surfaces only)
+ * - 'secondary' → surfaces reached via ⌘K instead of the primary strip. Can be
+ *                 either 'planned' (future, clearly marked "Soon") or 'live'
+ *                 (a real page — e.g. Knowledge/Intelligence, Step 10) once
+ *                 built; see the `liveSecondaryModules`/`comingSoonModules`
+ *                 selectors below for how the two are told apart downstream.
+ * - 'settings'  → top-bar right cluster (gear)
+ * - 'developer' → Developer Mode only
+ *
+ * 'contextual' is reserved for a future context-sensitive surface placement
+ * (e.g. surfaced inline next to relevant content rather than in a fixed nav
+ * location). No selector, layout, or component currently reads this value —
+ * it is an unused placeholder in the type union today, not a wired surface.
+ */
+export type Surface = 'topbar' | 'secondary' | 'settings' | 'developer' | 'contextual';
+
+/** Who is allowed to see it. 'developer' requires Developer Mode enabled. */
+export type Audience = 'everyone' | 'advanced' | 'developer';
+
+/**
+ * Honest Core-capability status for this surface (see docs/JARVIS_CORE_FRONTEND_MAPPING.md).
+ * - 'live'    → real, working frontend surface today
+ * - 'planned' → placeholder UI; Core contract not yet integrated. MUST be shown
+ *               as unfinished (never presented as production-ready).
+ */
+export type CapabilityStatus = 'live' | 'planned';
+
 export interface ModuleDef {
   path: string;
+  /** The USER-FACING name — never a system name. */
   label: string;
   icon: LucideIcon;
-  group: string;
-  /** Built pages vs. "coming soon" placeholders. */
+  surface: Surface;
+  audience: Audience;
+  /** Honest capability status — drives "Soon"/unavailable markers in the UI. */
+  status: CapabilityStatus;
+  /** Owning JARVIS Core milestone, for alignment/terminology (metadata only). */
+  core?: string;
+  /** Whether a real built page exists (vs. the shared placeholder). */
   ready?: boolean;
   badge?: string;
-  /** Special sidebar behaviour instead of navigation. */
+  /** Overlay/action instead of navigation. */
   action?: 'voice';
+  /** Old v1 paths that should redirect here. */
+  redirectFrom?: string[];
 }
 
+/**
+ * Single source of truth for navigation. A FLAT registry — no groups.
+ * `surface` + `audience` + `status` encode placement and Core-alignment;
+ * derived selectors (below) drive the top bar, command palette and settings.
+ *
+ * PRIMARY nav (surface 'topbar') is deliberately lean: only surfaces that are
+ * actually live today (M10 Chat/Voice + Home). Everything the Core has not yet
+ * wired to the frontend stays 'secondary' + 'planned' so the UI never implies a
+ * capability is production-ready. Every renamed/demoted v1 route lists itself in
+ * a `redirectFrom` so nothing 404s.
+ */
 export const modules: ModuleDef[] = [
-  { path: '/', label: 'Home', icon: LayoutDashboard, group: 'Overview', ready: true },
-  { path: '/chat', label: 'AI Chat', icon: MessageSquare, group: 'Overview', ready: true, badge: 'live' },
-  { path: '/voice', label: 'Voice', icon: Mic, group: 'Overview', ready: true, action: 'voice' },
+  // ── PRIMARY top bar — current / live surfaces only ──
+  { path: '/', label: 'Home', icon: LayoutDashboard, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M8', ready: true },
+  { path: '/chat', label: 'Chat', icon: MessageSquare, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M10', ready: true, badge: 'live', redirectFrom: ['/agents'] },
+  { path: '/voice', label: 'Voice', icon: Mic, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M10', ready: true, action: 'voice' },
+  { path: '/automations', label: 'Automations', icon: Workflow, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M7', ready: true, redirectFrom: ['/automation', '/browser'] },
 
-  { path: '/memory', label: 'Memory', icon: Brain, group: 'Intelligence' },
-  { path: '/knowledge', label: 'Knowledge', icon: Network, group: 'Intelligence' },
-  { path: '/agents', label: 'Agents', icon: Bot, group: 'Intelligence' },
-  { path: '/automation', label: 'Automation', icon: Workflow, group: 'Intelligence' },
+  // ── SECONDARY — live surfaces (⌘K "Go to", not the primary strip) ──
+  { path: '/knowledge', label: 'Knowledge', icon: BookOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10A', ready: true },
+  { path: '/intelligence', label: 'Intelligence', icon: Lightbulb, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10B', ready: true },
+  { path: '/apps', label: 'AI Apps', icon: Sparkles, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10.5', ready: true, redirectFrom: ['/plugins'] },
+  { path: '/notes', label: 'Notes', icon: StickyNote, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
+  { path: '/tasks', label: 'Tasks', icon: SquareCheck, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true, redirectFrom: ['/projects'] },
+  { path: '/calendar', label: 'Calendar', icon: Calendar, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
+  { path: '/files', label: 'Files', icon: FolderOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
+  { path: '/smart-home', label: 'Smart Home', icon: House, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M12', ready: true },
 
-  { path: '/projects', label: 'Projects', icon: FolderKanban, group: 'Workspace' },
-  { path: '/tasks', label: 'Tasks', icon: SquareCheck, group: 'Workspace' },
-  { path: '/calendar', label: 'Calendar', icon: Calendar, group: 'Workspace' },
-  { path: '/files', label: 'Files', icon: FolderOpen, group: 'Workspace' },
-  { path: '/browser', label: 'Browser', icon: Globe, group: 'Workspace' },
+  // (No remaining 'secondary' + 'planned' placeholder surfaces as of Step 13 —
+  // every secondary module above is live. Device Management and Home
+  // Assistant + MQTT, roadmap items 14-15, will introduce new placeholder
+  // entries here in a later step.)
 
-  { path: '/google', label: 'Google Workspace', icon: Mail, group: 'Integrations' },
-  { path: '/microsoft', label: 'Microsoft 365', icon: Blocks, group: 'Integrations' },
-  { path: '/plugins', label: 'Plugins', icon: Blocks, group: 'Integrations' },
+  // ── Settings (right cluster, not the main strip) ──
+  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/memory', '/google', '/microsoft', '/diagnostics', '/performance'] },
 
-  { path: '/diagnostics', label: 'Diagnostics', icon: Activity, group: 'System' },
-  { path: '/performance', label: 'Performance', icon: Gauge, group: 'System' },
-  { path: '/settings', label: 'Settings', icon: Settings, group: 'System' },
-  { path: '/design', label: 'Design System', icon: Component, group: 'System', ready: true },
+  // ── Developer Mode (hidden by default) ──
+  { path: '/design', label: 'Design System', icon: Component, surface: 'developer', audience: 'developer', status: 'live', ready: true },
 ];
 
-export const moduleGroups = ['Overview', 'Intelligence', 'Workspace', 'Integrations', 'System'] as const;
+// ── Derived selectors (never hand-written) ──
+/** The lean primary top-bar strip. */
+export const topBarModules = modules.filter((m) => m.surface === 'topbar');
+/** All non-primary surfaces reachable via ⌘K — both live and planned. */
+export const secondaryModules = modules.filter((m) => m.surface === 'secondary');
+/** Secondary surfaces that are real, built pages (e.g. Knowledge, Intelligence)
+ *  — surfaced in the command palette's "Go to" group, not "Coming soon". */
+export const liveSecondaryModules = secondaryModules.filter((m) => m.status === 'live');
+/** Secondary surfaces still pending Core integration — the "Coming soon" group. */
+export const comingSoonModules = secondaryModules.filter((m) => m.status === 'planned');
+export const settingsModules = modules.filter((m) => m.surface === 'settings');
+export const developerModules = modules.filter((m) => m.surface === 'developer');
 
-export const aiIcon = Sparkles;
+/** Everything the command palette can reach, gated on Developer Mode. */
+export const commandModules = (devMode: boolean) =>
+  modules.filter((m) => devMode || m.audience !== 'developer');
+
+export const aiIcon = Bot;
 
 export function moduleByPath(path: string): ModuleDef | undefined {
   return modules.find((m) => m.path === path);

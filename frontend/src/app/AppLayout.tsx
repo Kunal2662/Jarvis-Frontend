@@ -5,47 +5,38 @@ import {
   Bot,
   Calendar,
   Command,
-  Gauge,
-  Minus,
-  Network,
+  Search,
   Settings,
   Sparkles,
-  Square,
-  SquareCheck,
-  StickyNote,
   Wifi,
-  X,
 } from 'lucide-react';
 import {
   AppShell,
   Avatar,
-  Badge,
-  Breadcrumb,
   CommandPalette,
-  Dock,
   IconButton,
   NotificationCenter,
   QuickSettings,
-  Sidebar,
-  SidebarGroup,
-  SidebarItem,
   StatusBar,
   StatusItem,
   TopBar,
+  TopNav,
   useHotkey,
   useToast,
   VoiceOrb,
   type CommandGroup,
   type NotificationGroup,
+  type TopNavItem,
 } from '../design-system';
-import { moduleByPath, moduleGroups, modules } from './modules';
+import { comingSoonModules, liveSecondaryModules, settingsModules, topBarModules } from './modules';
 import { VoiceOverlay } from '../features/voice/VoiceOverlay';
+import { UniversalSearch } from '../features/search/UniversalSearch';
 
 export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -57,32 +48,61 @@ export function AppLayout() {
     return () => clearInterval(t);
   }, []);
 
+  // ⌘K keeps its existing command-execution role (CommandPalette: actions +
+  // "go to"). Universal Search (free-text search-everything, distinct
+  // surface) gets its own shortcut so the two don't collide.
   useHotkey('mod+k', (e) => {
     e.preventDefault();
     setPaletteOpen(true);
+  });
+  useHotkey('mod+shift+k', (e) => {
+    e.preventDefault();
+    setSearchOpen(true);
   });
   useHotkey('mod+j', (e) => {
     e.preventDefault();
     setVoiceOpen(true);
   });
 
-  const current = moduleByPath(location.pathname);
-  const isHome = location.pathname === '/';
   const hour = clock.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const timeStr = clock.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  const dateStr = clock.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+  const selectModule = (path: string, action?: 'voice') =>
+    action === 'voice' ? setVoiceOpen(true) : navigate(path);
+
+  // Flat top-bar navigation — one level, overflow scrolls (never a dropdown).
+  const navItems: TopNavItem[] = topBarModules.map((m) => ({
+    id: m.path.replace(/\W+/g, '') || 'home',
+    label: m.label,
+    icon: m.icon,
+    badge: m.badge,
+    active: location.pathname === m.path,
+    onSelect: () => selectModule(m.path, m.action),
+  }));
 
   const commandGroups: CommandGroup[] = useMemo(
     () => [
       {
-        heading: 'Navigate',
-        items: modules.map((m) => ({
+        // Primary nav + real secondary pages (e.g. Knowledge, Intelligence) —
+        // everything here is a live, built surface today.
+        heading: 'Go to',
+        items: [...topBarModules, ...liveSecondaryModules, ...settingsModules].map((m) => ({
           id: m.path,
           label: m.label,
           icon: <m.icon />,
-          hint: m.ready ? undefined : 'soon',
-          onSelect: () => navigate(m.path),
+          onSelect: () => selectModule(m.path, m.action),
+        })),
+      },
+      {
+        // Future surfaces — Core contract not yet wired to the frontend.
+        // Clearly marked so nothing here looks production-ready.
+        heading: 'Coming soon',
+        items: comingSoonModules.map((m) => ({
+          id: m.path,
+          label: m.label,
+          icon: <m.icon />,
+          hint: 'soon',
+          onSelect: () => selectModule(m.path, m.action),
         })),
       },
       {
@@ -104,7 +124,8 @@ export function AppLayout() {
         ],
       },
     ],
-    [navigate],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navigate, location.pathname],
   );
 
   const notifGroups: NotificationGroup[] = [
@@ -121,75 +142,38 @@ export function AppLayout() {
     },
   ];
 
-  const dockItems = [
-    { id: 'notes', icon: <StickyNote />, label: 'Notes', onClick: () => navigate('/notes') },
-    { id: 'tasks', icon: <SquareCheck />, label: 'Tasks', onClick: () => navigate('/tasks') },
-    { id: 'graph', icon: <Network />, label: 'Graph', onClick: () => navigate('/graph') },
-    { id: 'monitor', icon: <Gauge />, label: 'Monitor', onClick: () => navigate('/performance') },
-  ].map((d) => ({ ...d, active: location.pathname === `/${d.id}` }));
+  const mobileTabs = topBarModules.slice(0, 5);
 
   return (
     <AppShell
-      sidebar={
-        <Sidebar
-          collapsed={collapsed}
-          onToggle={() => setCollapsed((c) => !c)}
-          header={
-            <button onClick={() => navigate('/')} className="flex items-center gap-2.5 outline-none">
+      topbar={
+        <TopBar
+          nav={<div className="hidden md:flex min-w-0"><TopNav items={navItems} /></div>}
+          leading={
+            <button
+              onClick={() => navigate('/')}
+              data-testid="brand-home"
+              className="flex items-center gap-2.5 outline-none"
+              aria-label={`${greeting}, Tony — go to Home`}
+            >
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft shadow-glow-sm">
                 <Sparkles className="size-4 text-ai-aura" />
               </div>
-              {!collapsed && <span className="font-display text-h3 tracking-tight text-content">JARVIS</span>}
+              <span className="hidden font-display text-h3 tracking-tight text-content sm:block">JARVIS</span>
             </button>
-          }
-          footer={<SidebarItem icon={<Avatar size="xs" fallback="TS" />} label="Tony Stark" />}
-        >
-          {moduleGroups.map((group) => (
-            <SidebarGroup key={group} label={group}>
-              {modules
-                .filter((m) => m.group === group)
-                .map((m) => (
-                  <SidebarItem
-                    key={m.path}
-                    icon={<m.icon />}
-                    label={m.label}
-                    active={location.pathname === m.path}
-                    badge={m.badge ? <Badge variant="accent" size="sm">{m.badge}</Badge> : undefined}
-                    onClick={() => (m.action === 'voice' ? setVoiceOpen(true) : navigate(m.path))}
-                  />
-                ))}
-            </SidebarGroup>
-          ))}
-        </Sidebar>
-      }
-      topbar={
-        <TopBar
-          onSearchClick={() => setPaletteOpen(true)}
-          leading={
-            isHome ? (
-              <div className="flex flex-col leading-tight">
-                <span className="flex items-center gap-1.5 text-body-sm font-semibold text-content">
-                  {greeting}, Tony
-                  <span className="text-content-tertiary">·</span>
-                  <span className="tabular-nums text-content-secondary">{timeStr}</span>
-                </span>
-                <span className="text-caption text-content-tertiary">{dateStr}</span>
-              </div>
-            ) : (
-              <Breadcrumb
-                items={[{ label: 'JARVIS', onClick: () => navigate('/') }, { label: current?.label ?? 'Home' }]}
-              />
-            )
           }
           trailing={
             <>
-              <div className="mr-1 hidden items-center gap-3 lg:flex">
+              <div className="mr-1 hidden items-center gap-3 xl:flex">
                 <StatusItem icon={<Wifi />} tone="success">Connected</StatusItem>
                 <span className="flex items-center gap-1.5 text-caption text-content-secondary">
                   <span className="size-1.5 animate-pulse rounded-full bg-ai-aura" />
                   Jarvis ready
                 </span>
               </div>
+              <IconButton label="Search (⌘⇧K)" data-testid="open-search" onClick={() => setSearchOpen(true)}>
+                <Search className="size-[18px]" />
+              </IconButton>
               <IconButton label="Voice (⌘J)" data-testid="open-voice" onClick={() => setVoiceOpen(true)}>
                 <Sparkles className="size-[18px] text-ai-aura" />
               </IconButton>
@@ -201,17 +185,15 @@ export function AppLayout() {
               </IconButton>
               <QuickSettings
                 trigger={
-                  <IconButton label="Quick settings" data-testid="open-quick-settings">
-                    <Settings className="size-[18px]" />
+                  <IconButton label="Appearance" data-testid="open-quick-settings">
+                    <span className="text-[18px] leading-none">◐</span>
                   </IconButton>
                 }
               />
+              <IconButton label="Settings" data-testid="open-settings" onClick={() => navigate('/settings')}>
+                <Settings className="size-[18px]" />
+              </IconButton>
               <Avatar size="sm" fallback="TS" status="online" />
-              <div className="ml-1 hidden items-center gap-1 xl:flex" aria-label="Window controls">
-                <IconButton label="Minimize" size="sm"><Minus className="size-4" /></IconButton>
-                <IconButton label="Maximize" size="sm"><Square className="size-3.5" /></IconButton>
-                <IconButton label="Close" size="sm" className="hover:bg-danger-soft hover:text-danger"><X className="size-4" /></IconButton>
-              </div>
             </>
           }
         />
@@ -224,17 +206,38 @@ export function AppLayout() {
               <StatusItem icon={<Bot />}>12 agents</StatusItem>
             </>
           }
-          right={<StatusItem icon={<Command />}>⌘K · ⌘J voice</StatusItem>}
+          right={<StatusItem icon={<Command />}>⌘K · ⌘⇧K search · ⌘J voice</StatusItem>}
         />
       }
       overlay={
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-sticky flex justify-center">
-            <div className="pointer-events-auto">
-              <Dock items={dockItems} />
-            </div>
-          </div>
-          <div className="absolute bottom-6 right-6 z-voice">
+          {/* Mobile bottom tab strip (top 5 surfaces) — a platform convention, not a sidebar. */}
+          <nav
+            aria-label="Primary (mobile)"
+            data-testid="mobile-tabbar"
+            className="glass fixed inset-x-0 bottom-0 z-sticky flex items-stretch justify-around border-t border-line px-1 py-1.5 md:hidden"
+          >
+            {mobileTabs.map((m) => {
+              const Icon = m.icon;
+              const active = location.pathname === m.path;
+              return (
+                <button
+                  key={m.path}
+                  onClick={() => selectModule(m.path, m.action)}
+                  data-testid={`mobile-tab-${m.path.replace(/\W+/g, '') || 'home'}`}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1 text-[10px] font-medium transition-colors ${
+                    active ? 'text-ai-aura' : 'text-content-tertiary'
+                  }`}
+                >
+                  <Icon className="size-5" />
+                  {m.label}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="absolute bottom-6 right-6 z-voice mb-14 md:mb-0">
             <VoiceOrb size={56} state="idle" onClick={() => setVoiceOpen(true)} label="Open voice session" />
           </div>
           <CommandPalette
@@ -249,6 +252,7 @@ export function AppLayout() {
             }}
           />
           <NotificationCenter open={notifOpen} onOpenChange={setNotifOpen} groups={notifGroups} onMarkAllRead={() => {}} />
+          <UniversalSearch open={searchOpen} onOpenChange={setSearchOpen} onOpenVoice={() => setVoiceOpen(true)} />
           <VoiceOverlay open={voiceOpen} onOpenChange={setVoiceOpen} />
         </>
       }

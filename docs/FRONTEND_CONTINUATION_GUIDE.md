@@ -26,11 +26,11 @@ The frontend is intended to become the modern presentation layer for JARVIS Core
 
 Per the authoritative continuation state in `docs/FRONTEND_PROGRESS.md` (§11):
 
-**LAST COMPLETED FRONTEND STEP:** Step 15 — Home Assistant + MQTT (`/smart-home/integrations`, extending the Smart Home area with a new `ConnectorService` seam — `smartHomeIntegrationService.ts`, one independent mock/Core-stub adapter pair per connector). Connector status/configuration/diagnostics only: connect/disconnect/reconnect, a masked `CredentialState` (never a raw credential), and a `syncEntities()` preview normalized into the existing `DeviceType`/`DeviceCapability` vocabulary that is deliberately never merged into the Smart Home Command Center's live device list. No real Home Assistant/MQTT handshake happens anywhere in this frontend. Reached via a new "Integrations" action on the Command Center header, alongside "Manage devices". No verified Core contract was found in this repository — see `docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md`. This completes roadmap Phase 6 / M12 Smart Home & IoT (items 13-15) as a frontend surface.
+**LAST COMPLETED FRONTEND STEP:** Step 16 — Memory (`/memory`, a new `MemoryService` seam — `memoryService.ts` — read-only recall list + detail + forget only). `Memory { id, content, type, source, importance, createdAt }` — `MemorySource` limited to `'chat' | 'voice'` (the two real, already-built interactive surfaces). No create/edit-content UI (a memory represents something JARVIS itself formed, never user-authored here), no semantic/vector search (honest local substring filtering only), no confidence scores or other raw pipeline internals — those stay behind Developer Mode per `CLAUDE.md`. Forgetting a memory goes through an explicit confirm dialog and is local-only. Registered as a fourth Universal Search category (`'memory'`). The old v1 `/memory → /settings` redirect was removed now that `/memory` has a real page. No verified Core Memory contract was found in this repository — see `docs/CORE_MEMORY_CONTRACT_REQUIRED.md`.
 
-**NEXT FRONTEND STEP:** Step 16 — Memory (`docs/FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 16 — the next unstarted item after M12 Smart Home & IoT completed. Item 16's own status note flags it "contract verification required" — verify the real Core Memory contract before implementing, per the roadmap's standing rule.).
+**NEXT FRONTEND STEP:** Step 17 — Agents (`docs/FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 17 — the next unstarted item after Step 16 Memory. No Core Agents contract is documented anywhere in this checkpoint — verify before implementing, per the roadmap's standing rule.).
 
-Do not start Step 16 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
+Do not start Step 17 automatically when merely reading this document — wait for explicit approval/instruction, and re-read `docs/FRONTEND_PROGRESS.md` first.
 
 ## Golden rules
 
@@ -179,7 +179,8 @@ The planned order begins:
 8. Knowledge + Intelligence — frontend done (local/static mock adapters), Core integration pending
 9. AI Apps + Integrations — frontend done (in-memory mock adapter, one combined MCP-tool + connector catalog surface), Core integration pending
 10. M11 Productivity — Notes, Tasks + Projects, Calendar, Files + Workspace — frontend done (four independent in-memory mock adapters), Core integration pending
-11. M12 Smart Home — Smart Home Command Center (Step 13) + Device Management (Step 14) + Home Assistant + MQTT (Step 15) — frontend done in full (in-memory mock adapters, normalized room/device/scene entities, additive `updateDevice`/`removeDevice`/`pairDevice` + health/diagnostics on the `SmartHomeService` seam, plus a new `ConnectorService` seam for connector status/config/diagnostics), Core/Home Assistant/MQTT integration pending ← just completed (Step 15); M12 is now fully built as a frontend surface, next up is Step 16 (Memory)
+11. M12 Smart Home — Smart Home Command Center (Step 13) + Device Management (Step 14) + Home Assistant + MQTT (Step 15) — frontend done in full (in-memory mock adapters, normalized room/device/scene entities, additive `updateDevice`/`removeDevice`/`pairDevice` + health/diagnostics on the `SmartHomeService` seam, plus a new `ConnectorService` seam for connector status/config/diagnostics), Core/Home Assistant/MQTT integration pending
+12. Memory — frontend done (in-memory mock adapter, read-only recall list + detail + forget via a new `MemoryService` seam), Core memory integration pending ← just completed (Step 16); next up is Step 17 (Agents)
 
 Only proceed to the next item after the previous one has been reviewed.
 

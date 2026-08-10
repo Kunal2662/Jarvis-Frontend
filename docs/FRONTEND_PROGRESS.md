@@ -1178,6 +1178,108 @@ This completes roadmap Phase 6 / M12 Smart Home & IoT (items 13-15).
 
 ---
 
+## Step 16 — Memory
+
+**Status: COMPLETE — frontend using an in-memory mock adapter; Core memory integration pending**
+
+Per the roadmap (Phase 7, item 16 "Memory" — status "Placeholder / contract
+verification required", the only detail given anywhere in the roadmap
+docs) and `docs/JARVIS_CORE_FRONTEND_MAPPING.md` ("Memory | Core
+future/current capability | ⚠️ Verify | 🔴/placeholder | Do not invent
+API"), no Core Memory milestone, endpoint, or schema is documented
+anywhere in this checkpoint. `README.md`'s own product-vision sections
+describe the **intended** future capability this step builds toward: a
+vector store + knowledge graph behind a "recall UI" — "things Jarvis
+remembers." Based on that intent (there being nothing more concrete to go
+on), this step implements Memory as a **read-only recall list + detail +
+forget** surface — never a place to author or edit a memory's content
+(a memory represents something JARVIS itself formed from a conversation),
+and never semantic/vector search (honest local substring filtering only,
+per `JARVIS_FRONTEND_ARCHITECTURE.md`'s "do not implement a second...
+memory engine" rule).
+
+Architecture:
+
+```text
+MemoryPage
+        │
+MemoryService (one seam, mirrors Knowledge/Notes/Smart Home)
+        │
+  Mock Adapter (in-memory) / Core Adapter (stub, ready:false)
+```
+
+Implemented:
+
+- `memoryService.ts` — the `MemoryService` seam (`getMemories`,
+  `getMemory`, `forgetMemory` — deliberately no create/edit-content
+  method), selectable via `VITE_MEMORY_BACKEND` (`mock` default, `core`
+  stub). Data model: `Memory { id, content, type, source, importance,
+  createdAt }` — `MemoryType` (`Preference`/`Context`/`Device`/`Routine`/
+  `Instruction`), `MemorySource` limited to `'chat' | 'voice'` (the two
+  real, already-built interactive surfaces — never an invented ingestion
+  pipeline), `MemoryImportance` (`low`/`medium`/`high`). No `confidence`
+  or other raw ML/pipeline field — per `CLAUDE.md`'s rule that memory
+  internals (vector store, embeddings) stay behind Developer Mode, this
+  end-user surface doesn't fabricate one to imply it exists
+- `adapters/mockMemoryAdapter.ts` — 9 seeded memories spanning every type,
+  both sources, and all three importance levels; all clearly fictional
+  local-development content (ordinary preferences/routines/instructions
+  like "Preferred home temperature is 23°C.", "Jarvis should use concise
+  responses.") — never a real secret, credential, or private identifying
+  detail, and an explicit test asserts none of the seed content matches a
+  password/API-key/token/secret/financial-identifier pattern.
+  `forgetMemory` performs a real in-memory deletion (the one write
+  operation this step supports)
+- `adapters/coreMemoryAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`), every method rejects with
+  `CoreMemoryContractUnavailableError`; no Core Memory endpoint invented
+- `MemoryPage.tsx` (new route `/memory`) — a `List`/`ListRow`-based
+  memory list (`MemoryRow.tsx`) with local text search and a type filter,
+  stat cards, and the standard simulation-disclosure banner; clicking a
+  row opens `MemoryDetailDrawer.tsx` (content, type, source, importance,
+  when it was formed, and a "Forget this memory" action). Forgetting goes
+  through an explicit confirmation dialog ("Forget this memory? / This
+  memory will be removed from local development data. / [Cancel]
+  [Forget]") — never an ambiguous destructive label
+- Routing: `/memory` wired in `App.tsx`; a **net-new**
+  `app/modules.tsx` entry (`surface: 'secondary'`, `status: 'live'`,
+  `ready: true`, no `core` milestone cited — none is confirmed to exist).
+  The old v1 `/memory → /settings` redirect (`Settings`'s `redirectFrom`)
+  was removed now that `/memory` has a real page of its own — a
+  regression test confirms this
+- **Universal Search integration**: Memory was registered as a fourth
+  Step-13-style additional searchable category (`'memory'`) — honest
+  substring filtering over memory content only, deep-linking to `/memory`
+  with `location.state.memoryId`. The search seam's own doc comment
+  previously named Memory as the explicit example of "not yet ready" for a
+  category; it became one now that Step 16 actually built the backing
+  surface/dataset. Regression tests confirm every prior category still
+  works, including one legitimate new overlap (the seeded "Usually asks
+  for a morning briefing around 8 AM" memory honestly also matches the
+  pre-existing Step 8 "morning" → Automations query — the old exhaustive
+  test was broadened, not weakened, mirroring how Step 13's own room/device
+  overlaps were handled)
+- No memory creation/editing UI, no semantic/vector search, no knowledge
+  graph or memory-linking UI, no confidence scores, no second permission
+  system, no localStorage use (memories live only in the mock adapter's
+  module-level JS state, confirmed empty via a live browser check) — all
+  per `docs/CORE_MEMORY_CONTRACT_REQUIRED.md`'s scope boundary
+- `docs/CORE_MEMORY_CONTRACT_REQUIRED.md` added — no verified Core Memory
+  contract was found anywhere in this frontend checkpoint (confirmed via
+  an explicit repository search before implementation, excluding
+  `2.0-main`/`backend/` per this task's scope), so none was invented
+
+**Memory is mock/local to this frontend session only.** No real Core
+memory service, vector store, or embeddings pipeline is ever contacted; a
+full page reload resets every memory back to the 9 seeded items (a
+Forget'd memory returns on reload, since nothing persists outside this
+mock's in-memory JS state — no localStorage is used). Real memory
+formation, semantic recall, and retention/expiry policy remain owned by
+JARVIS Core and are pending a verified Core contract (see
+`docs/CORE_MEMORY_CONTRACT_REQUIRED.md`).
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -1345,6 +1447,13 @@ Important implemented areas in this checkpoint include:
 - `features/smartHome/RoomCard.tsx`, `DeviceTile.tsx` (Step 14 added its "Manage" deep-link button), `SceneCard.tsx`, `DeviceAvailabilityBadge.tsx`, `RoomStatusBadge.tsx`
 - `features/smartHome/__tests__/`
 
+### Memory
+
+- `features/memory/MemoryPage.tsx`, `MemoryRow.tsx`, `MemoryDetailDrawer.tsx` (Step 16)
+- `features/memory/memoryService.ts`, `memoryFormat.ts` (Step 16)
+- `features/memory/adapters/mockMemoryAdapter.ts`, `adapters/coreMemoryAdapter.ts` (Step 16)
+- `features/memory/__tests__/`
+
 ### Navigation
 
 - `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
@@ -1355,14 +1464,50 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–15 were green:
+The latest reported frontend gates for the completed Steps 1–16 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **383/384 PASS** across 47 files, deterministic (`npx vitest run --no-file-parallelism`) — all 365 Step 0–14 tests still pass, plus 19 new for Step 15 — Home Assistant + MQTT. The one failure
-  (`CalendarPage.test.tsx > filters events to only today via the time filter`) is a **pre-existing, unrelated
-  Step 12 issue** — `mockCalendarAdapter.ts` hardcodes its seed data to a fixed "today" anchor
-  (`2026-08-09`, per its own doc comment) that has since drifted behind the real calendar date; the file
-  was last touched in the Step 12 commit and is untouched by Step 15. Not treated as a regression.
+- Vitest: **414/414 PASS** across 51 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
+  not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps)
+  — all 384 Step 0–15 tests still pass (including the Step 12 Calendar date-drift test, now fixed during
+  Step 15's validation), plus 30 new for Step 16 — Memory:
+  - Memory (30 across 5 files): `memoryService.test.ts` (new, 9 — mock adapter defaults to `ready: true`, the
+    Core stub is `ready: false` and every method rejects with `CoreMemoryContractUnavailableError`, seeded
+    memories cover every `MemoryType`/`MemorySource`/`MemoryImportance`, an explicit assertion that no seeded
+    memory content matches a password/API-key/token/secret/financial-identifier pattern, `getMemory`
+    lookup + not-found rejection, `forgetMemory` deleting a memory + not-found rejection, and confirmation
+    there is no create/update/edit-content method), `MemoryPage.test.tsx` (new, 7 — the memory list + stat
+    cards + simulation banner, search filtering, type filtering, opening the detail drawer with
+    content/source/importance, an explicit assertion no secret/credential text appears anywhere in the list
+    or detail view, forget-with-confirm end to end including the exact "Forget this memory?" confirmation
+    copy, deep-linking to a specific memory's drawer), `MemoryPageStates.test.tsx` (new, 6 —
+    loading/empty/error+retry/unavailable/ready/no-results), `routing.test.tsx` (new, 4 — live secondary
+    module registration, not a 5th primary nav item, `/memory` renders the real page directly with the old
+    v1 `/memory → /settings` redirect confirmed removed, primary nav/no-sidebar invariant)
+  - `features/search/__tests__/searchService.test.ts` (net +4): a query matching only a memory's content
+    returns a categorized `'memory'` group with a working deep-link `navState.memoryId`; the Memory nav
+    destination is searchable as an `'app'` group result; regression tests confirm every pre-existing
+    category (automation/knowledge/room/files/chat) keeps working correctly alongside the new one — including
+    one legitimate new overlap, honestly broadened rather than weakened: the Step 8 "morning" → Automations
+    test now also asserts the seeded "Usually asks for a morning briefing around 8 AM" memory legitimately
+    matches too (mirrors how Step 13's room/device overlaps were handled)
+  - A genuine bug was caught and fixed during this step's own manual/automated testing (not a pre-existing
+    issue carried over): `MemoryDetailDrawer.tsx` initially rendered a memory's content twice (once as the
+    drawer description, once in a separate "Content" section) — redundant since a memory is short/atomic,
+    unlike Knowledge's distinct snippet-vs-full-body split. Fixed by removing the duplicate section.
+  - Note: as with prior steps, running the full suite with Vitest's default parallel worker pool can produce
+    intermittent timeout flakes in unrelated tests under CPU contention on this development machine; every
+    test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`,
+    which is what was used to produce the 414/414 result above.
+
+Prior to Step 16, Steps 1–15 gates (383/384 tests across 47 files, with one known pre-existing Calendar
+date-drift failure since fixed — see Step 15's own entry above) were also green:
+- TypeScript/typecheck: **PASS**
+- Vitest: **383/384 PASS** across 47 files, deterministic — all 365 Step 0–14 tests still pass, plus 19 new for
+  Step 15 — Home Assistant + MQTT. The one failure (`CalendarPage.test.tsx > filters events to only today via
+  the time filter`) was a pre-existing, unrelated Step 12 issue — `mockCalendarAdapter.ts` hardcodes its seed
+  data to a fixed "today" anchor (`2026-08-09`) that had drifted behind the real calendar date; fixed as part
+  of Step 15's validation pass (freezing only `Date` in that one test) before the branch was merged.
   - Smart Home + Device Management + Integrations (84 across 7 files): `smartHomeIntegrationService.test.ts`
     (new, 11 — both mock adapters default `ready: true` and are selected by default, both Core adapter stubs
     are `ready: false` and every method rejects with a connector-specific `CoreConnectorContractUnavailableError`,
@@ -1379,9 +1524,7 @@ The latest reported frontend gates for the completed Steps 1–15 were green:
     / `SmartHomePageStates.test.tsx` unchanged from Step 14
   - Note: as with prior steps, running the full suite with Vitest's default parallel worker pool can produce
     intermittent timeout flakes in unrelated tests under CPU contention on this development machine; every
-    test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`,
-    which is what was used to produce the 383/384 result above (the one failure above is a genuine,
-    date-dependent pre-existing issue, not parallelism flake).
+    test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`.
 
 Prior to Step 15, Steps 1–14 gates (365/365 tests across 45 files) were also green:
   - Smart Home + Device Management (65 across 5 files): `smartHomeService.test.ts` (+9 — `updateDevice` rename/trim/room-reassign + empty-name/unknown-room/unknown-device rejections, `removeDevice` deleting the device + tearing down its subscription + unknown-device rejection, `pairDevice` adding a device with sensible per-capability defaults after its simulated discovery delay + empty-name/unknown-room/zero-capability rejections, plus the existing core-adapter-not-ready test extended to cover all three new methods), `DeviceManagementPage.test.tsx` (new, 7 — the device list + stat cards + simulation banner, search/room filtering, opening the management drawer with capabilities/state/health-diagnostics, rename + room-reassign end to end, remove-with-confirm end to end, pair-new-device end to end including the visible "discovering device…" state, deep-linking to a specific device's drawer), `SmartHomePage.test.tsx` (+2 — the new "Manage devices" header action and a `DeviceTile`'s "Manage" button each correctly deep-link to `/smart-home/devices`), `routing.test.tsx` (+1 — `/smart-home/devices` renders `DeviceManagementPage`, not a placeholder)
@@ -1429,8 +1572,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 16 | Smart Home Command Center | 🟢 Complete (in-memory mock adapter; Core/Home Assistant/MQTT integration pending) |
 | 17 | Device Management / Connectivity UI | 🟢 Complete (in-memory mock adapter, extends the Step 13 seam additively; Core/Home Assistant/MQTT integration pending) |
 | 18 | Home Assistant + MQTT frontend integration | 🟢 Complete (in-memory mock adapters, one per connector, extend the Step 13 seam additively via a new `ConnectorService`; Core/Home Assistant/MQTT integration pending) |
-| 19 | Memory frontend | 🔴 Placeholder / contract dependent ← next |
-| 20 | Agents frontend | 🔴 Placeholder |
+| 19 | Memory frontend | 🟢 Complete (in-memory mock adapter, read-only recall + forget only, no semantic/vector search; Core memory integration pending) |
+| 20 | Agents frontend | 🔴 Placeholder ← next |
 | 21 | Settings frontend | 🔴 Placeholder |
 | 22 | Diagnostics + Performance UI | 🔴 Placeholder / contract dependent |
 | 23 | Developer Mode | 🔴 Placeholder / contract dependent |
@@ -1462,7 +1605,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Files → real storage/upload (frontend currently ships an in-memory, metadata-only mock adapter only — no real file bytes exist anywhere in this frontend — see `docs/CORE_FILES_CONTRACT_REQUIRED.md`)
 - Smart Home + Device Management → real device discovery/command execution/realtime state via Home Assistant/MQTT connectors, real pairing/onboarding, and real health/diagnostics telemetry (frontend currently ships an in-memory mock adapter only, normalized entities, no vendor-specific UI, no real discovery protocol — see `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`)
 - Home Assistant + MQTT connectors → real connect/disconnect handshake, real credential submission, real entity discovery/sync, and the entity-to-device promotion step (frontend currently ships in-memory mock adapters only, one per connector, that never contact a real instance/broker — see `docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md`)
-- Memory → real memory service
+- Memory → real memory formation, semantic/vector recall, and retention/expiry policy (frontend currently ships an in-memory mock adapter only — read-only recall list + forget, no create/edit-content, no semantic search — see `docs/CORE_MEMORY_CONTRACT_REQUIRED.md`)
 
 These should not be implemented as fake backend systems in React.
 
@@ -1502,7 +1645,8 @@ Do not redo:
 - Smart Home foundation (`SmartHomeService` seam, the normalized Room/Device/Scene entities, the room-overview + device-grid + scenes Command Center UI, the prominent simulation-disclosure banner)
 - Device Management foundation (the same `SmartHomeService` seam extended additively with `updateDevice`/`removeDevice`/`pairDevice` and the optional health/diagnostics `Device` fields — do not introduce a second `DeviceManagementService`; the `/smart-home/devices` list + drawer + pair-device UI)
 - Home Assistant + MQTT integration foundation (`smartHomeIntegrationService.ts`'s `ConnectorService` seam, one instance per connector — do not introduce a second connector service or a real MQTT/Home Assistant client; the `/smart-home/integrations` connector-card + detail-drawer UI, the `DiscoveredEntity` preview that is never merged into the live Smart Home device list)
-- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations stay secondary/command-palette surfaces — none of these are a 5th nav item)
+- Memory foundation (`MemoryService` seam, the read-only recall list + detail + forget UI at `/memory` — do not add a create/edit-content method here; a memory represents something JARVIS itself formed, never user-authored in this frontend)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations/Memory stay secondary/command-palette surfaces — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -1519,10 +1663,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–15.
+8. Do not redo Steps 0–16.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Step 16 — Memory** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 16 — the next unstarted item after Step 15 Home Assistant + MQTT completed M12 Smart Home & IoT in full (items 13-15). Item 16's own status note flags it "contract verification required" — verify the real Core Memory contract before implementing, not a new mock).
+11. Continue from **Step 17 — Agents** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 17 — the next unstarted item after Step 16 Memory. No Core Agents contract is documented anywhere in this checkpoint — verify before implementing, not a new mock).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -1535,9 +1679,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 15 — Home Assistant + MQTT (in-memory mock adapters, one per connector, extend the Smart Home area via a new `ConnectorService` seam; Core/Home Assistant/MQTT integration pending). This completes roadmap Phase 6 / M12 Smart Home & IoT in full (items 13-15).
+**LAST COMPLETED FRONTEND STEP:** Step 16 — Memory (in-memory mock adapter; read-only recall list + detail + forget, no create/edit-content, no semantic/vector search; Core memory integration pending).
 
-**NEXT FRONTEND STEP:** Step 16 — Memory (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 16 — the next unstarted item after M12 Smart Home & IoT completed. Contract verification required before implementing.)
+**NEXT FRONTEND STEP:** Step 17 — Agents (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 17 — the next unstarted item after Step 16 Memory. No Core contract documented; verify before implementing.)
 
 **CURRENT PRODUCT STATE:**
 
@@ -1560,10 +1704,11 @@ A new Emergent workspace/account or coding agent should:
 - Smart Home: complete as a normalized-entity Command Center frontend surface (rooms, devices, inline controls, scenes) using an in-memory mock adapter — no vendor-specific UI, no real hardware/Home Assistant/MQTT contacted (Core Smart Home/connector integration pending)
 - Device Management: complete as a per-device rename/room-reassignment, pairing, removal, and read-only health/diagnostics/connector frontend surface at `/smart-home/devices`, extending the Smart Home `SmartHomeService` seam additively using the same in-memory mock adapter — no connector configuration UI, no real device-discovery protocol (Core Smart Home/connector integration pending)
 - Home Assistant + MQTT: complete as a connector status/configuration/diagnostics frontend surface at `/smart-home/integrations`, using in-memory mock adapters (one per connector) behind a new `ConnectorService` seam — no real handshake, no credential ever stored/displayed, synced entities are a preview never promoted into the live Smart Home device list (Core Home Assistant/MQTT connector integration pending)
+- Memory: complete as a read-only recall list + detail + forget frontend surface at `/memory`, using an in-memory mock adapter behind a new `MemoryService` seam — no create/edit-content UI (a memory is never user-authored here), no semantic/vector search, no localStorage use (Core memory integration pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START STEP 16 automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START STEP 17 automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

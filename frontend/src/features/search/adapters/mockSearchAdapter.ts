@@ -7,6 +7,7 @@ import { mockTasksService } from '../../tasks/adapters/mockTasksAdapter';
 import { mockCalendarService } from '../../calendar/adapters/mockCalendarAdapter';
 import { mockFilesService } from '../../files/adapters/mockFilesAdapter';
 import { mockSmartHomeService } from '../../smartHome/adapters/mockSmartHomeAdapter';
+import { mockMemoryService } from '../../memory/adapters/mockMemoryAdapter';
 import { loadMessages } from '../../chat/chatStore';
 import { liveSecondaryModules, settingsModules, topBarModules } from '../../../app/modules';
 
@@ -250,6 +251,23 @@ async function searchScenes(term: string): Promise<SearchResult[]> {
     }));
 }
 
+/** The Memory mock dataset (Step 16) — search by content only, honest
+ *  substring filtering, never semantic/vector retrieval. Deep-links to
+ *  `/memory` and pre-selects the matched memory's detail drawer. */
+async function searchMemories(term: string): Promise<SearchResult[]> {
+  const memories = await mockMemoryService.getMemories();
+  return memories
+    .filter((m) => matches(m.content, term))
+    .map((m) => ({
+      id: `memory-${m.id}`,
+      category: 'memory' as const,
+      title: m.content,
+      description: m.type,
+      path: '/memory',
+      navState: { memoryId: m.id },
+    }));
+}
+
 /** This browser's own recent Chat messages (localStorage, Step 7) — real data,
  *  not fabricated history. Only the user's own messages are searched. */
 function searchChat(term: string): SearchResult[] {
@@ -279,6 +297,7 @@ const LABELS: Record<SearchResult['category'], string> = {
   room: 'Rooms',
   device: 'Devices',
   scene: 'Scenes',
+  memory: 'Memory',
 };
 
 export const mockSearchService: SearchService = {
@@ -290,7 +309,7 @@ export const mockSearchService: SearchService = {
     const term = query.trim().toLowerCase();
     if (!term) return [];
 
-    const [automation, knowledge, aiApp, note, task, calendar, files, room, device, scene] = await Promise.all([
+    const [automation, knowledge, aiApp, note, task, calendar, files, room, device, scene, memory] = await Promise.all([
       searchAutomations(term),
       searchKnowledge(term),
       searchAiApps(term),
@@ -301,6 +320,7 @@ export const mockSearchService: SearchService = {
       searchRooms(term),
       searchDevices(term),
       searchScenes(term),
+      searchMemories(term),
     ]);
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
     const app = searchApp(term);
@@ -318,6 +338,7 @@ export const mockSearchService: SearchService = {
       { category: 'room', label: LABELS.room, results: room },
       { category: 'device', label: LABELS.device, results: device },
       { category: 'scene', label: LABELS.scene, results: scene },
+      { category: 'memory', label: LABELS.memory, results: memory },
       { category: 'chat', label: LABELS.chat, results: chat },
     ];
     const groups = allGroups.filter((g) => g.results.length > 0);

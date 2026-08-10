@@ -35,9 +35,14 @@
  *                   name/type
  *  - 'scene'      → the Smart Home mock scene set (Step 13) — searched by
  *                   name/description
- * Do not add a category (e.g. Memory) until a real frontend surface/dataset
- * backs it. Intelligence insights are deliberately NOT a search category —
- * they are Core-computed display content, not searchable named entities.
+ *  - 'memory'     → the Memory mock dataset (Step 16) — searched by content
+ *                   only, honest local substring filtering, never
+ *                   semantic/vector retrieval
+ * Do not add a category until a real frontend surface/dataset backs it —
+ * this is why Memory (formerly called out here as the example of something
+ * NOT yet ready) only became a category once Step 16 actually built it.
+ * Intelligence insights are deliberately NOT a search category — they are
+ * Core-computed display content, not searchable named entities.
  */
 export type SearchResultCategory =
   | 'app'
@@ -51,7 +56,8 @@ export type SearchResultCategory =
   | 'files'
   | 'room'
   | 'device'
-  | 'scene';
+  | 'scene'
+  | 'memory';
 
 export interface SearchResult {
   id: string;

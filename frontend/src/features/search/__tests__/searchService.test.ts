@@ -38,13 +38,19 @@ describe('search service seam', () => {
     const { mockSearchService } = await import('../adapters/mockSearchAdapter');
     const groups = await mockSearchService.search('morning');
 
-    expect(groups).toHaveLength(1);
+    // Honest broadening, not a weakening (Step 16): the seeded memory "Usually
+    // asks for a morning briefing around 8 AM" legitimately also matches
+    // "morning" — mirrors how Step 13's room/device overlaps were handled.
+    expect(groups).toHaveLength(2);
     expect(groups[0].category).toBe('automation');
     expect(groups[0].label).toBe('Automations');
     expect(groups[0].results.map((r) => r.title)).toContain('Morning Brief');
     // Every result carries a real navigable path — never a fabricated one.
     expect(groups[0].results[0].path).toBe('/automations');
     expect(groups[0].results[0].navState).toEqual({ automationId: 'auto-1' });
+
+    const memoryGroup = groups.find((g) => g.category === 'memory');
+    expect(memoryGroup?.results.map((r) => r.title)).toContain('Usually asks for a morning briefing around 8 AM.');
   });
 
   it('a query matching a live nav destination returns a categorized "app" group', async () => {
@@ -579,6 +585,70 @@ describe('search service seam', () => {
   }, 15000);
 
   it('regression: recent chat search still works alongside the new Smart Home categories', async () => {
+    const { saveMessages } = await import('../../chat/chatStore');
+    saveMessages([
+      { id: 'm1', role: 'user', content: 'Remind me about the quarterly review' },
+      { id: 'm2', role: 'assistant', content: 'Sure thing — quarterly review at 3pm.' },
+    ]);
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('quarterly');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('chat');
+    expect(groups[0].results[0].title).toContain('quarterly review');
+  });
+
+  // ── Step 16 — Memory ────────────────────────────────────────────────────
+
+  it('a query matching only a memory\'s content returns a categorized "memory" group (Step 16)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('concise');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('memory');
+    expect(groups[0].results[0].title).toBe('Jarvis should use concise responses.');
+    expect(groups[0].results[0].path).toBe('/memory');
+    expect(groups[0].results[0].navState).toEqual({ memoryId: 'mem-3' });
+  });
+
+  it('the Memory nav destination is searchable as an "app" group result', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('memory');
+
+    const appGroup = groups.find((g) => g.category === 'app');
+    expect(appGroup?.results.some((r) => r.title === 'Memory' && r.path === '/memory')).toBe(true);
+  });
+
+  it('regression: automations, knowledge, AI Apps, notes, tasks, calendar, files, and smart home search still work correctly after adding the Memory category', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+
+    const automationGroups = await mockSearchService.search('morning');
+    expect(automationGroups.find((g) => g.category === 'automation')?.results.map((r) => r.title)).toContain(
+      'Morning Brief',
+    );
+    // "morning" legitimately also matches the seeded memory "Usually asks for
+    // a morning briefing around 8 AM" — honest overlap, not a bug (mirrors
+    // the room/device overlap pattern above).
+    expect(automationGroups.find((g) => g.category === 'memory')?.results.map((r) => r.title)).toContain(
+      'Usually asks for a morning briefing around 8 AM.',
+    );
+
+    const knowledgeGroups = await mockSearchService.search('checklist');
+    expect(knowledgeGroups.find((g) => g.category === 'knowledge')?.results.map((r) => r.title)).toContain(
+      'Workshop Safety Checklist',
+    );
+
+    const roomGroups = await mockSearchService.search('outdoor');
+    expect(roomGroups.find((g) => g.category === 'room')?.results.map((r) => r.title)).toEqual(['Outdoor']);
+    expect(roomGroups.some((g) => g.category === 'memory')).toBe(false);
+
+    const filesGroups = await mockSearchService.search('budget');
+    expect(filesGroups.find((g) => g.category === 'files')?.results.map((r) => r.title)).toContain(
+      'Household budget.xlsx',
+    );
+  }, 15000);
+
+  it('regression: recent chat search still works alongside the new Memory category', async () => {
     const { saveMessages } = await import('../../chat/chatStore');
     saveMessages([
       { id: 'm1', role: 'user', content: 'Remind me about the quarterly review' },

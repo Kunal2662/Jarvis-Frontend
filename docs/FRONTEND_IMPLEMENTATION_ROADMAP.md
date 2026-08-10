@@ -213,7 +213,17 @@ Core connectors exist; frontend integration must use real contracts.
 ## Phase 7 — Remaining AI/Workflow surfaces
 
 ### 16. Memory
-**Status:** 🔴 Placeholder / contract verification required
+**Status:** 🟢 Complete (frontend Step 16) — read-only recall list + detail
++ forget at `/memory`, via a new `MemoryService` seam
+(`features/memory/memoryService.ts`). No Core Memory milestone, endpoint,
+or schema is documented anywhere in this checkpoint (confirmed via an
+explicit repository search before implementation) — none was invented; see
+`docs/CORE_MEMORY_CONTRACT_REQUIRED.md`. No create/edit-content UI (a
+memory represents something JARVIS itself formed from a conversation, not
+something a user hand-authors here), no semantic/vector search (honest
+local substring filtering only), no confidence scores or other raw
+pipeline internals. Registered as a fourth Step-13-style Universal Search
+category. Details in `docs/FRONTEND_PROGRESS.md` Step 16.
 
 ### 17. Agents
 **Status:** 🔴 Placeholder

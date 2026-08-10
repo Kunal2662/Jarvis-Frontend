@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Bot,
+  Brain,
   Calendar,
   Component,
   FolderOpen,
@@ -93,14 +94,19 @@ export const modules: ModuleDef[] = [
   { path: '/calendar', label: 'Calendar', icon: Calendar, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
   { path: '/files', label: 'Files', icon: FolderOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
   { path: '/smart-home', label: 'Smart Home', icon: House, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M12', ready: true },
+  { path: '/memory', label: 'Memory', icon: Brain, surface: 'secondary', audience: 'everyone', status: 'live', ready: true },
 
-  // (No remaining 'secondary' + 'planned' placeholder surfaces as of Step 13 —
-  // every secondary module above is live. Device Management and Home
-  // Assistant + MQTT, roadmap items 14-15, will introduce new placeholder
-  // entries here in a later step.)
+  // (Device Management and Home Assistant + MQTT, roadmap items 14-15,
+  // stayed sub-routes reached from within Smart Home's own entry points
+  // rather than separate module entries here — see SmartHomePage.tsx's
+  // header actions. No remaining 'secondary' + 'planned' placeholder
+  // surfaces as of Step 16 — every secondary module above is live. Memory
+  // has no confirmed Core milestone number yet (`core` intentionally
+  // omitted — see docs/CORE_MEMORY_CONTRACT_REQUIRED.md), unlike every
+  // other entry here which cites one.)
 
   // ── Settings (right cluster, not the main strip) ──
-  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/memory', '/google', '/microsoft', '/diagnostics', '/performance'] },
+  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/google', '/microsoft', '/diagnostics', '/performance'] },
 
   // ── Developer Mode (hidden by default) ──
   { path: '/design', label: 'Design System', icon: Component, surface: 'developer', audience: 'developer', status: 'live', ready: true },

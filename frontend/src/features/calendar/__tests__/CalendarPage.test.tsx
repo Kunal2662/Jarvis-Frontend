@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ToastProvider, TooltipProvider } from '../../../design-system';
 
 import { CalendarPage } from '../CalendarPage';
@@ -51,23 +51,40 @@ describe('CalendarPage', () => {
   });
 
   it('filters events to only today via the time filter', async () => {
-    renderPage();
-    await screen.findByTestId('calendar-event-row-cal-1');
+    // The seeded "today" events (cal-3, cal-4) are anchored to a fixed date
+    // in mockCalendarAdapter.ts's seed data (2026-08-09T...) — this test's
+    // "Today" filter depends on `calendarFormat.ts`'s `isToday()`, which
+    // compares against the real wall clock (`new Date()`), so it must freeze
+    // the clock to that same seeded day to stay deterministic as real time
+    // moves past it, rather than depending on the machine's actual date.
+    // Only `Date` is faked (not `setTimeout`/`setInterval`) so the mock
+    // adapter's own simulated-latency `delay()` still resolves normally —
+    // mirrors the scoped-fake-timers pattern in
+    // smartHomeService.test.ts's drift-simulation test.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-09T12:00:00'));
 
-    const user = userEvent.setup();
-    await user.click(screen.getByTestId('calendar-time-filter'));
-    await user.click(await screen.findByRole('option', { name: 'Today' }));
+    try {
+      renderPage();
+      await screen.findByTestId('calendar-event-row-cal-1');
 
-    await waitFor(() => {
-      expect(screen.getByTestId('calendar-event-row-cal-3')).toBeInTheDocument();
-      expect(screen.getByTestId('calendar-event-row-cal-4')).toBeInTheDocument();
-      expect(screen.queryByTestId('calendar-event-row-cal-1')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('calendar-event-row-cal-5')).not.toBeInTheDocument();
-    });
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId('calendar-time-filter'));
+      await user.click(await screen.findByRole('option', { name: 'Today' }));
 
-    // Reset back to all events for subsequent tests in this shared-dataset file.
-    await user.click(screen.getByTestId('calendar-time-filter'));
-    await user.click(await screen.findByRole('option', { name: 'All events' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('calendar-event-row-cal-3')).toBeInTheDocument();
+        expect(screen.getByTestId('calendar-event-row-cal-4')).toBeInTheDocument();
+        expect(screen.queryByTestId('calendar-event-row-cal-1')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('calendar-event-row-cal-5')).not.toBeInTheDocument();
+      });
+
+      // Reset back to all events for subsequent tests in this shared-dataset file.
+      await user.click(screen.getByTestId('calendar-time-filter'));
+      await user.click(await screen.findByRole('option', { name: 'All events' }));
+    } finally {
+      vi.useRealTimers();
+    }
     await screen.findByTestId('calendar-event-row-cal-1');
   });
 

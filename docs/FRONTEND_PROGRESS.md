@@ -1071,6 +1071,113 @@ verified Core contract.
 
 ---
 
+## Step 15 — Home Assistant + MQTT
+
+**Status: COMPLETE — frontend using in-memory mock adapters (one per connector); Core/Home Assistant/MQTT integration pending**
+
+Per the roadmap (Phase 6, item 15 "Home Assistant + MQTT" — the third and
+final M12 item, following item 13 "Smart Home Command Center" and item 14
+"Device Management") and `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`'s own
+scoping note for item 15 ("connecting/authenticating a Home Assistant
+instance or MQTT broker, entity-mapping/discovery configuration, connector
+health/status UI. The frontend never talks to a connector directly in any
+adapter, mock or future-Core — only Core would, behind this seam"), this
+step adds a **connector layer** on top of the existing Smart Home area —
+never a second Smart Home system, never a real MQTT client or Home
+Assistant REST/WebSocket client anywhere in this frontend.
+
+Architecture:
+
+```text
+IntegrationsPage
+        │
+ConnectorService (one instance per connector — independent readiness)
+        │
+   ┌────┴────┐
+Home Assistant   MQTT
+        │            │
+   Mock Adapter  Mock Adapter   /  Core Adapter (stub, ready:false)
+        │
+ DiscoveredEntity preview (normalized DeviceType/DeviceCapability,
+ never merged into the live Smart Home Command Center device list)
+```
+
+Implemented:
+
+- `smartHomeIntegrationService.ts` — the `ConnectorService` seam
+  (`getState`, `connect`, `disconnect`, `reconnect`, `syncEntities`), two
+  independent instances (`getHomeAssistantConnectorService()`,
+  `getMqttConnectorService()`), each selectable via its own
+  `VITE_HOME_ASSISTANT_BACKEND` / `VITE_MQTT_BACKEND` env var (`mock`
+  default, `core` stub) — independent because Core may ship one connector's
+  real contract before the other's. Types: `ConnectorStatus`
+  (`not_configured`/`disconnected`/`connecting`/`connected`/`error`),
+  `CredentialState` (`not_configured`/`configured`/`invalid`/`unavailable`
+  — **never** the raw credential value), `ConnectorState`, `DiscoveredEntity`
+  (normalized into the existing `DeviceType`/`DeviceCapability` vocabulary,
+  never a raw Home Assistant entity id or MQTT topic/payload shape)
+- `adapters/mockHomeAssistantAdapter.ts` / `adapters/mockMqttAdapter.ts` —
+  in-memory mock state per connector. `connect()` validates the form input
+  is non-empty, discards the secret immediately (never stored, never
+  returned in any state snapshot — covered by an explicit test asserting
+  the raw secret string never appears in `JSON.stringify(state)` or the
+  rendered DOM), and records only a display label; a simulated
+  connecting delay (~1-1.2s) precedes `connected`. `disconnect()` clears
+  discovered entities (no longer confirmed live). `reconnect()` requires
+  `disconnected`/`error`. `syncEntities()` requires `connected`, simulates a
+  discovery delay (~1.5s, mirroring Device Management's `pairDevice`
+  pattern), and returns a small, fixed **preview** list — deliberately
+  never merged into `mockSmartHomeAdapter.ts`'s seeded `devices` array, so
+  Step 13/14's established dataset and tests stay untouched. A capped
+  (20-entry), newest-first diagnostics log records every state transition
+- `adapters/coreHomeAssistantAdapter.ts` / `adapters/coreMqttAdapter.ts` —
+  intentionally unimplemented stubs (`ready: false`), every method rejects
+  with `CoreConnectorContractUnavailableError`; no Home Assistant/MQTT/Core
+  endpoint invented
+- `IntegrationsPage.tsx` (new route `/smart-home/integrations`) — two
+  `ConnectorCard.tsx` summary cards (status badge — icon + text, never
+  color-only — credential state, last synced, discovered-entity count);
+  clicking one opens `ConnectorDetailDrawer.tsx` (credential state, a
+  connect/reconnect form when not connected — endpoint + a `type="password"`
+  secret field, cleared from the form's own state immediately after submit
+  — connect/disconnect/sync actions when connected, the discovered-entities
+  preview list, and the diagnostics log). A connector whose backend isn't
+  `ready` (Core selected, contract still pending) renders a distinct,
+  honest "not connected yet" card/drawer state rather than fabricating
+  status — this is a genuine architectural difference from Step 13/14's
+  single-service pattern, since the two connectors' Core readiness is
+  independent
+- Two entry points, both from `SmartHomePage.tsx`'s header actions: a new
+  "Integrations" action (always enabled, independent of the main
+  `SmartHomeService`'s own readiness) alongside the existing "Manage
+  devices" action
+- Routing: `/smart-home/integrations` wired in `App.tsx` alongside
+  `/smart-home` and `/smart-home/devices`; not a new `app/modules.tsx`
+  entry, same reasoning as Device Management
+- No connector configuration UI beyond status/connect/disconnect/sync, no
+  real device-discovery protocol, no credential ever displayed or
+  persisted, and synced entities are never promoted into the Command
+  Center's live, controllable device set — all per
+  `docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md`'s scope boundary
+- `docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md` added — no verified
+  Home Assistant, MQTT, or Core connector contract was found anywhere in
+  this frontend checkpoint (confirmed via an explicit repository search
+  before implementation, excluding `2.0-main`/`backend/` per this task's
+  scope), so none was invented
+
+**Home Assistant + MQTT integration is mock/local to this frontend session
+only.** No real Home Assistant instance or MQTT broker is ever contacted;
+"connecting" never performs a real handshake, and no entered credential is
+stored or displayed back. A full page reload resets both connectors to
+`not_configured`. Real connection, entity discovery/sync, and the
+entity-to-device promotion step remain owned by JARVIS Core and are
+pending a verified Core contract (see
+`docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md`).
+
+This completes roadmap Phase 6 / M12 Smart Home & IoT (items 13-15).
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -1226,12 +1333,15 @@ Important implemented areas in this checkpoint include:
 - `features/files/__tests__/`
 - `design-system/composites/Breadcrumb/Breadcrumb.tsx` (pre-existing, previously unused; small additive keyboard-accessibility fix in this step)
 
-### Smart Home (Command Center + Device Management)
+### Smart Home (Command Center + Device Management + Integrations)
 
-- `features/smartHome/SmartHomePage.tsx` (Step 13 Command Center; Step 14 added the "Manage devices" header action)
+- `features/smartHome/SmartHomePage.tsx` (Step 13 Command Center; Step 14 added the "Manage devices" header action, Step 15 added the "Integrations" header action)
 - `features/smartHome/DeviceManagementPage.tsx`, `DeviceManagementRow.tsx`, `DeviceManagementDrawer.tsx`, `DeviceHealthSummary.tsx`, `PairDeviceForm.tsx` (Step 14)
+- `features/smartHome/IntegrationsPage.tsx`, `ConnectorCard.tsx`, `ConnectorDetailDrawer.tsx` (Step 15)
 - `features/smartHome/smartHomeService.ts`, `smartHomeFormat.ts`
+- `features/smartHome/smartHomeIntegrationService.ts`, `smartHomeIntegrationFormat.ts` (Step 15)
 - `features/smartHome/adapters/mockSmartHomeAdapter.ts`, `adapters/coreSmartHomeAdapter.ts`
+- `features/smartHome/adapters/mockHomeAssistantAdapter.ts`, `adapters/mockMqttAdapter.ts`, `adapters/coreHomeAssistantAdapter.ts`, `adapters/coreMqttAdapter.ts` (Step 15)
 - `features/smartHome/RoomCard.tsx`, `DeviceTile.tsx` (Step 14 added its "Manage" deep-link button), `SceneCard.tsx`, `DeviceAvailabilityBadge.tsx`, `RoomStatusBadge.tsx`
 - `features/smartHome/__tests__/`
 
@@ -1245,10 +1355,35 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–14 were green:
+The latest reported frontend gates for the completed Steps 1–15 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **PASS** — 365/365 tests across 45 files (all 346 Step 0–13 tests still pass, plus 19 new for Step 14 — Device Management):
+- Vitest: **383/384 PASS** across 47 files, deterministic (`npx vitest run --no-file-parallelism`) — all 365 Step 0–14 tests still pass, plus 19 new for Step 15 — Home Assistant + MQTT. The one failure
+  (`CalendarPage.test.tsx > filters events to only today via the time filter`) is a **pre-existing, unrelated
+  Step 12 issue** — `mockCalendarAdapter.ts` hardcodes its seed data to a fixed "today" anchor
+  (`2026-08-09`, per its own doc comment) that has since drifted behind the real calendar date; the file
+  was last touched in the Step 12 commit and is untouched by Step 15. Not treated as a regression.
+  - Smart Home + Device Management + Integrations (84 across 7 files): `smartHomeIntegrationService.test.ts`
+    (new, 11 — both mock adapters default `ready: true` and are selected by default, both Core adapter stubs
+    are `ready: false` and every method rejects with a connector-specific `CoreConnectorContractUnavailableError`,
+    the full Home Assistant connect/disconnect/reconnect/syncEntities lifecycle including validation rejections
+    and an explicit assertion that a connected/synced state's `JSON.stringify` never contains the raw secret
+    entered, the equivalent MQTT lifecycle, and confirmation the two connectors' mock state is fully
+    independent), `IntegrationsPage.test.tsx` (new, 6 — both connector cards render `not_configured` by
+    default, connecting Home Assistant end to end through the drawer form, syncing entities and rendering the
+    preview list, disconnect clearing discovered entities then reconnect, MQTT connecting independently of
+    Home Assistant's state, and an explicit DOM-wide assertion that no entered secret ever appears after
+    connecting), `smartHomeService.test.ts` (unchanged from Step 14), `SmartHomePage.test.tsx` (+1 — the new
+    "Integrations" header action navigates to `/smart-home/integrations`), `routing.test.tsx` (+1 —
+    `/smart-home/integrations` renders `IntegrationsPage`, not a placeholder), `DeviceManagementPage.test.tsx`
+    / `SmartHomePageStates.test.tsx` unchanged from Step 14
+  - Note: as with prior steps, running the full suite with Vitest's default parallel worker pool can produce
+    intermittent timeout flakes in unrelated tests under CPU contention on this development machine; every
+    test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`,
+    which is what was used to produce the 383/384 result above (the one failure above is a genuine,
+    date-dependent pre-existing issue, not parallelism flake).
+
+Prior to Step 15, Steps 1–14 gates (365/365 tests across 45 files) were also green:
   - Smart Home + Device Management (65 across 5 files): `smartHomeService.test.ts` (+9 — `updateDevice` rename/trim/room-reassign + empty-name/unknown-room/unknown-device rejections, `removeDevice` deleting the device + tearing down its subscription + unknown-device rejection, `pairDevice` adding a device with sensible per-capability defaults after its simulated discovery delay + empty-name/unknown-room/zero-capability rejections, plus the existing core-adapter-not-ready test extended to cover all three new methods), `DeviceManagementPage.test.tsx` (new, 7 — the device list + stat cards + simulation banner, search/room filtering, opening the management drawer with capabilities/state/health-diagnostics, rename + room-reassign end to end, remove-with-confirm end to end, pair-new-device end to end including the visible "discovering device…" state, deep-linking to a specific device's drawer), `SmartHomePage.test.tsx` (+2 — the new "Manage devices" header action and a `DeviceTile`'s "Manage" button each correctly deep-link to `/smart-home/devices`), `routing.test.tsx` (+1 — `/smart-home/devices` renders `DeviceManagementPage`, not a placeholder)
   - Note: as with prior steps, running the full suite with Vitest's default parallel worker pool can produce intermittent timeout flakes in unrelated tests under CPU contention on this development machine (Automations/Calendar/Tasks/AI Apps/Files/Knowledge routing tests and a couple of Smart Home deep-link tests were all observed flaking transiently, none of them a real regression); every test — new and pre-existing — passes reliably and deterministically with `npx vitest run --no-file-parallelism`, which is what was used to produce the 365/365 result above.
 
@@ -1293,8 +1428,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 15 | Files + Workspace frontend | 🟢 Complete (in-memory mock adapter; Core integration pending) |
 | 16 | Smart Home Command Center | 🟢 Complete (in-memory mock adapter; Core/Home Assistant/MQTT integration pending) |
 | 17 | Device Management / Connectivity UI | 🟢 Complete (in-memory mock adapter, extends the Step 13 seam additively; Core/Home Assistant/MQTT integration pending) |
-| 18 | Home Assistant + MQTT frontend integration | 🔴 Placeholder / Core-contract dependent ← next |
-| 19 | Memory frontend | 🔴 Placeholder / contract dependent |
+| 18 | Home Assistant + MQTT frontend integration | 🟢 Complete (in-memory mock adapters, one per connector, extend the Step 13 seam additively via a new `ConnectorService`; Core/Home Assistant/MQTT integration pending) |
+| 19 | Memory frontend | 🔴 Placeholder / contract dependent ← next |
 | 20 | Agents frontend | 🔴 Placeholder |
 | 21 | Settings frontend | 🔴 Placeholder |
 | 22 | Diagnostics + Performance UI | 🔴 Placeholder / contract dependent |
@@ -1326,6 +1461,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Calendar → real persistence/timezone contract (frontend currently ships an in-memory mock adapter only, local-naive datetimes with no timezone model — see `docs/CORE_CALENDAR_CONTRACT_REQUIRED.md`)
 - Files → real storage/upload (frontend currently ships an in-memory, metadata-only mock adapter only — no real file bytes exist anywhere in this frontend — see `docs/CORE_FILES_CONTRACT_REQUIRED.md`)
 - Smart Home + Device Management → real device discovery/command execution/realtime state via Home Assistant/MQTT connectors, real pairing/onboarding, and real health/diagnostics telemetry (frontend currently ships an in-memory mock adapter only, normalized entities, no vendor-specific UI, no real discovery protocol — see `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`)
+- Home Assistant + MQTT connectors → real connect/disconnect handshake, real credential submission, real entity discovery/sync, and the entity-to-device promotion step (frontend currently ships in-memory mock adapters only, one per connector, that never contact a real instance/broker — see `docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md`)
 - Memory → real memory service
 
 These should not be implemented as fake backend systems in React.
@@ -1365,7 +1501,8 @@ Do not redo:
 - Files foundation (`FilesService` seam, the folder-navigation + breadcrumb UI, the metadata-only "no real storage" scope)
 - Smart Home foundation (`SmartHomeService` seam, the normalized Room/Device/Scene entities, the room-overview + device-grid + scenes Command Center UI, the prominent simulation-disclosure banner)
 - Device Management foundation (the same `SmartHomeService` seam extended additively with `updateDevice`/`removeDevice`/`pairDevice` and the optional health/diagnostics `Device` fields — do not introduce a second `DeviceManagementService`; the `/smart-home/devices` list + drawer + pair-device UI)
-- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management stay secondary/command-palette surfaces — none of these are a 5th nav item)
+- Home Assistant + MQTT integration foundation (`smartHomeIntegrationService.ts`'s `ConnectorService` seam, one instance per connector — do not introduce a second connector service or a real MQTT/Home Assistant client; the `/smart-home/integrations` connector-card + detail-drawer UI, the `DiscoveredEntity` preview that is never merged into the live Smart Home device list)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations stay secondary/command-palette surfaces — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -1382,10 +1519,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–14.
+8. Do not redo Steps 0–15.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Step 15 — Home Assistant + MQTT** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 15 — the next unstarted item after Step 14 Device Management. Verify the real Smart Home Core/connector contracts before implementing — that phase's own note says Core connectors already exist, so frontend integration must use real contracts, not a new mock).
+11. Continue from **Step 16 — Memory** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 16 — the next unstarted item after Step 15 Home Assistant + MQTT completed M12 Smart Home & IoT in full (items 13-15). Item 16's own status note flags it "contract verification required" — verify the real Core Memory contract before implementing, not a new mock).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -1398,9 +1535,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 14 — Device Management (in-memory mock adapter, extends the Step 13 `SmartHomeService` seam additively; Core/Home Assistant/MQTT integration pending)
+**LAST COMPLETED FRONTEND STEP:** Step 15 — Home Assistant + MQTT (in-memory mock adapters, one per connector, extend the Smart Home area via a new `ConnectorService` seam; Core/Home Assistant/MQTT integration pending). This completes roadmap Phase 6 / M12 Smart Home & IoT in full (items 13-15).
 
-**NEXT FRONTEND STEP:** Step 15 — Home Assistant + MQTT (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 6 / M12 Smart Home, item 15 — the next unstarted item after Step 14 Device Management)
+**NEXT FRONTEND STEP:** Step 16 — Memory (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 16 — the next unstarted item after M12 Smart Home & IoT completed. Contract verification required before implementing.)
 
 **CURRENT PRODUCT STATE:**
 
@@ -1422,10 +1559,11 @@ A new Emergent workspace/account or coding agent should:
 - Files: complete as a metadata-only file/folder browser frontend surface using an in-memory mock adapter — no real storage/upload/preview (Core storage/upload contract pending)
 - Smart Home: complete as a normalized-entity Command Center frontend surface (rooms, devices, inline controls, scenes) using an in-memory mock adapter — no vendor-specific UI, no real hardware/Home Assistant/MQTT contacted (Core Smart Home/connector integration pending)
 - Device Management: complete as a per-device rename/room-reassignment, pairing, removal, and read-only health/diagnostics/connector frontend surface at `/smart-home/devices`, extending the Smart Home `SmartHomeService` seam additively using the same in-memory mock adapter — no connector configuration UI, no real device-discovery protocol (Core Smart Home/connector integration pending)
+- Home Assistant + MQTT: complete as a connector status/configuration/diagnostics frontend surface at `/smart-home/integrations`, using in-memory mock adapters (one per connector) behind a new `ConnectorService` seam — no real handshake, no credential ever stored/displayed, synced entities are a preview never promoted into the live Smart Home device list (Core Home Assistant/MQTT connector integration pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START STEP 15 automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START STEP 16 automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

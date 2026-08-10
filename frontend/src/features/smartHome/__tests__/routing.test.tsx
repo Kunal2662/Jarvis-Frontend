@@ -60,4 +60,11 @@ describe('Smart Home routing + nav', () => {
     await screen.findByTestId('device-management-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
+
+  it('navigating to /smart-home/integrations renders Integrations (not the "coming soon" placeholder)', async () => {
+    renderApp('/smart-home/integrations');
+    expect(screen.getByRole('heading', { name: 'Integrations' })).toBeInTheDocument();
+    await screen.findByTestId('integrations-page');
+    expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
+  });
 });

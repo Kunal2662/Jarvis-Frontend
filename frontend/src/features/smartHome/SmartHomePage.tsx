@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, House, Lightbulb, Settings, Sparkles, Wifi } from 'lucide-react';
+import { AlertTriangle, House, Lightbulb, Plug, Settings, Sparkles, Wifi } from 'lucide-react';
 import {
   Button,
   EmptyState,
@@ -230,15 +230,25 @@ export function SmartHomePage() {
           : `${service.label} — smart home data is not connected yet.`
       }
       actions={
-        <Button
-          variant="secondary"
-          leftIcon={<Settings className="size-4" />}
-          onClick={() => navigate('/smart-home/devices')}
-          disabled={!service.ready}
-          data-testid="smart-home-manage-devices"
-        >
-          Manage devices
-        </Button>
+        <>
+          <Button
+            variant="secondary"
+            leftIcon={<Plug className="size-4" />}
+            onClick={() => navigate('/smart-home/integrations')}
+            data-testid="smart-home-integrations"
+          >
+            Integrations
+          </Button>
+          <Button
+            variant="secondary"
+            leftIcon={<Settings className="size-4" />}
+            onClick={() => navigate('/smart-home/devices')}
+            disabled={!service.ready}
+            data-testid="smart-home-manage-devices"
+          >
+            Manage devices
+          </Button>
+        </>
       }
       status={pageStatus}
       onRetry={list.reload}

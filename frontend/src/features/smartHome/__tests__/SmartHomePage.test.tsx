@@ -24,9 +24,9 @@ function LocationMarker({ testId }: { testId: string }) {
   return <div data-testid={testId}>{JSON.stringify(location.state ?? null)}</div>;
 }
 
-// Renders SmartHomePage plus a real route for `/smart-home/devices` (a
-// LocationMarker, not the real DeviceManagementPage) so a "Manage" click's
-// navigation target and `state` can be asserted the same way
+// Renders SmartHomePage plus real routes for `/smart-home/devices` and
+// `/smart-home/integrations` (LocationMarkers, not the real pages) so a
+// header action's navigation target and `state` can be asserted the same way
 // UniversalSearch.test.tsx verifies its own deep-links.
 function renderPageWithDevicesRoute() {
   return render(
@@ -36,6 +36,7 @@ function renderPageWithDevicesRoute() {
           <Routes>
             <Route path="/smart-home" element={<SmartHomePage />} />
             <Route path="/smart-home/devices" element={<LocationMarker testId="devices-marker" />} />
+            <Route path="/smart-home/integrations" element={<LocationMarker testId="integrations-marker" />} />
           </Routes>
         </MemoryRouter>
       </ToastProvider>
@@ -231,6 +232,16 @@ describe('SmartHomePage', () => {
     await user.click(screen.getByTestId('smart-home-manage-devices'));
 
     await screen.findByTestId('devices-marker');
+  });
+
+  it('the "Integrations" header action navigates to the Home Assistant + MQTT integrations page', async () => {
+    renderPageWithDevicesRoute();
+    await screen.findByTestId('smart-home-page');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('smart-home-integrations'));
+
+    await screen.findByTestId('integrations-marker');
   });
 
   it('a device tile\'s "Manage" button deep-links to Device Management with that device\'s id', async () => {

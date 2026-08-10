@@ -191,7 +191,20 @@ protocol — those remain item 15's job. Details in `docs/FRONTEND_PROGRESS.md`
 Step 14.
 
 ### 15. Home Assistant + MQTT
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 15) — connector status/configuration/
+diagnostics only, via a new `ConnectorService` seam
+(`smartHomeIntegrationService.ts`) with one independent mock/Core-stub
+adapter pair per connector (Home Assistant, MQTT). No real handshake to a
+Home Assistant instance or MQTT broker happens anywhere in this frontend;
+no credential is ever stored or displayed. `syncEntities()` returns a
+normalized `DiscoveredEntity` preview that is deliberately never merged
+into the Smart Home Command Center's live device list — entity-to-device
+promotion depends on a real Core contract this checkpoint does not have.
+No verified Home Assistant, MQTT, or Core connector contract was found in
+this repository (searched before implementation); see
+`docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md` for what's required
+from Core. This completes M12 Smart Home & IoT (items 13-15) as a frontend
+surface. Details in `docs/FRONTEND_PROGRESS.md` Step 15.
 
 Core connectors exist; frontend integration must use real contracts.
 

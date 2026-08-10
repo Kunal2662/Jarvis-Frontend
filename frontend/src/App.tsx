@@ -13,6 +13,7 @@ import { CalendarPage } from './features/calendar/CalendarPage';
 import { FilesPage } from './features/files/FilesPage';
 import { SmartHomePage } from './features/smartHome/SmartHomePage';
 import { DeviceManagementPage } from './features/smartHome/DeviceManagementPage';
+import { IntegrationsPage } from './features/smartHome/IntegrationsPage';
 import { DesignShowcase } from './pages/DesignShowcase';
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 
@@ -29,6 +30,7 @@ const PAGES = [
   '/files',
   '/smart-home',
   '/smart-home/devices',
+  '/smart-home/integrations',
   '/design',
 ];
 
@@ -48,6 +50,7 @@ export function App() {
         <Route path="/files" element={<FilesPage />} />
         <Route path="/smart-home" element={<SmartHomePage />} />
         <Route path="/smart-home/devices" element={<DeviceManagementPage />} />
+        <Route path="/smart-home/integrations" element={<IntegrationsPage />} />
         <Route path="/design" element={<DesignShowcase />} />
 
         {/* Placeholder surfaces (Home/Chat/Voice widgets ship in later phases). */}

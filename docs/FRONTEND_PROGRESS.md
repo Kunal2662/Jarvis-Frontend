@@ -1379,6 +1379,130 @@ JARVIS Core and are pending a verified Core contract (see
 
 ---
 
+## Step 19 — Settings
+
+**Status: COMPLETE — one real `SettingsService`-backed preference
+(`notificationsEnabled`), everything else configures an existing feature's
+own service directly; Core settings/preferences integration pending**
+
+Roadmap item 19 (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, "System")
+had no elaboration beyond "Placeholder." No Core settings/preferences
+contract is documented anywhere in this checkpoint (confirmed via an
+explicit repository search across settings, preferences, appearance,
+theme, notifications, voice, privacy, security, connections, and every
+other feature's preference surface, before implementing anything) — none
+was invented; see `docs/CORE_SETTINGS_CONTRACT_REQUIRED.md`.
+
+Architecture:
+
+```text
+SettingsPage (10 tabs)
+  ↓
+SettingsService (getSettings/updateSettings/resetSettings — owns `notificationsEnabled` only)
+  ↓
+mockSettingsAdapter (localStorage) / coreSettingsAdapter (ready: false)
+```
+
+Every other tab reads an *existing* feature's own service directly and
+links to that feature's real page — Settings never duplicates another
+feature's catalog, data model, or controls:
+
+- **Appearance** — NOT backed by `SettingsService` at all. Reads/writes
+  the existing, already-shipped `ThemeProvider` directly (the same engine
+  `QuickSettings` already used) — theme mode, density, contrast, Liquid
+  Glass. Verified live: switching Light/Dark/System actually changes
+  `document.documentElement`'s `data-theme` attribute
+- **Voice** — read-only status over the existing `VoiceService` seam
+  (backend id/label/ready, STT/TTS capability flags); no fake
+  microphone/speaker control, since none exists in the underlying seam. A
+  "Start voice session" button reuses `AppLayout`'s existing voice overlay
+  via outlet context — no second voice engine
+- **Notifications** — the one real `SettingsService`-backed preference.
+  Toggling `notificationsEnabled` genuinely empties `AppLayout`'s
+  `NotificationCenter` bell menu and hides its unread badge (verified live
+  in the browser and via a dedicated end-to-end regression test) — not a
+  fake toggle. No per-category notification toggles were built (no
+  per-category notification data model exists anywhere in this checkpoint)
+- **Privacy** — informational (what's stored locally) plus a real link
+  into Memory (`/memory`). No toggle claims to change Core-side data
+  retention, since no verified Core contract for that exists; shown as an
+  honest "Unavailable" card instead
+- **Smart Home** — read-only summary (room/device/scene counts via
+  `SmartHomeService`) plus the existing `ConnectorCard` component (reused
+  as-is) showing Home Assistant/MQTT status via `ConnectorService`.
+  Connect/disconnect/sync stays exclusively on `IntegrationsPage` (Step
+  15); this tab only summarizes and links there
+- **AI Apps, Memory, Agents, Automations** — each a read-only summary card
+  (via a shared `SettingsSummaryCard` component) over that feature's own
+  service, with a link to its real page. No catalog, recall, execution, or
+  orchestration logic duplicated
+- **About** — the frontend's real `package.json` version (via a
+  `resolveJsonModule` import, not a hardcoded string) plus a live
+  system-status table reading every backend seam's actual `id`/`label`/
+  `ready` values (Chat, Voice, Automations, Smart Home, Home Assistant,
+  MQTT, Memory, Agents, Settings itself) — never fabricated
+
+Implemented:
+
+- `settingsService.ts` — the `SettingsService` seam. `AppSettings { notificationsEnabled: boolean }`
+  and `DEFAULT_SETTINGS`. Deliberately small — only a preference with a
+  genuine, verifiable effect belongs here
+- `adapters/mockSettingsAdapter.ts` — persists to `localStorage`
+  (`jarvis.settings`) — real, honest client-side persistence across
+  reloads, not a per-tab-session simulation like most other mock adapters
+- `adapters/coreSettingsAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`), every method rejects with
+  `CoreSettingsContractUnavailableError`
+- `SettingsProvider.tsx` — a React context wrapping `SettingsService`,
+  mounted once in `main.tsx` (mirrors `ThemeProvider`). Unlike
+  `useTheme()`, `useSettings()` does **not** throw outside a provider — it
+  falls back to `DEFAULT_SETTINGS` — because `AppLayout` (the shared shell
+  every route renders) reads it, and dozens of pre-existing feature test
+  files already render the full `<App/>` tree without a `SettingsProvider`
+  wrapper; a throwing hook would have broken all of them for an unrelated
+  step. The safe default exactly matches `AppLayout`'s pre-Step-19
+  behavior, so nothing regressed
+- `SettingsPage.tsx` — `ModulePage` + a 10-tab `Tabs` (line variant):
+  Appearance, Voice, Notifications, Privacy, Smart Home, AI Apps, Memory,
+  Agents, Automations, About. A header "Reset to defaults" action opens a
+  centered `Modal` confirmation ("Reset settings?") explaining exactly
+  what resets (the notification preference) and what does not (Memory,
+  Files, Tasks, Automations, Smart Home devices, Agent history, and
+  Appearance — Appearance is intentionally excluded from reset since it
+  isn't owned by this seam)
+- Routing: `/settings` wired in `App.tsx`; the existing `app/modules.tsx`
+  entry (already present as a `surface: 'settings'` placeholder since
+  Step 2) flipped from `status: 'planned'` to `status: 'live', ready:
+  true` — no new module entry needed, and no primary-nav change (Settings
+  stays in the top-bar right cluster, not the Home/Chat/Voice/Automations
+  strip)
+- **Universal Search integration**: no code change was needed.
+  `searchService.ts`'s `'app'` category doc comment already listed
+  Settings among the nav destinations `searchApp()` covers, and
+  `mockSearchAdapter.ts`'s `searchApp()` already read `settingsModules`
+  unconditionally (regardless of `status`) — flipping the module to `live`
+  was sufficient. No individual setting/toggle became a separate search
+  result — only the Settings destination itself, verified via a
+  regression test asserting exactly one `/settings` result
+- No Developer Mode surface, no AI provider/credential management, no
+  connector connect/disconnect UI, no bulk Memory/Automations mutation —
+  all deliberately out of scope per `docs/CORE_SETTINGS_CONTRACT_REQUIRED.md`
+- `docs/CORE_SETTINGS_CONTRACT_REQUIRED.md` added — no verified Core
+  settings/preferences contract was found anywhere in this frontend
+  checkpoint (confirmed via an explicit repository search before
+  implementation, excluding `2.0-main`/`backend/` per this task's scope),
+  so none was invented
+
+**Settings preferences are local-device-only.** `notificationsEnabled`
+persists in this browser's `localStorage` and is never synced to another
+device or to JARVIS Core. Appearance persists via `ThemeProvider`'s own
+existing `localStorage` key, unaffected by this step. Real Core-backed
+settings sync, notification delivery, and data-retention controls remain
+owned by JARVIS Core and are pending a verified Core contract (see
+`docs/CORE_SETTINGS_CONTRACT_REQUIRED.md`).
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -1560,6 +1684,15 @@ Important implemented areas in this checkpoint include:
 - `features/agents/adapters/mockAgentAdapter.ts`, `adapters/coreAgentAdapter.ts` (Step 17)
 - `features/agents/__tests__/`
 
+### Settings
+
+- `features/settings/SettingsPage.tsx` (Step 19) — `ModulePage` + 10-tab `Tabs`
+- `features/settings/SettingsProvider.tsx` (Step 19) — non-throwing context wrapping `SettingsService`, mounted in `main.tsx`
+- `features/settings/settingsService.ts` (Step 19)
+- `features/settings/adapters/mockSettingsAdapter.ts`, `adapters/coreSettingsAdapter.ts` (Step 19)
+- `features/settings/sections/` (Step 19) — `AppearanceSection.tsx` (reads `useTheme()` directly), `VoiceSection.tsx`, `NotificationsSection.tsx`, `PrivacySection.tsx`, `SmartHomeSection.tsx`, `AiAppsSection.tsx`, `MemorySection.tsx`, `AgentsSection.tsx`, `AutomationsSection.tsx`, `AboutSection.tsx`, `SettingsSummaryCard.tsx` (shared)
+- `features/settings/__tests__/`
+
 ### Navigation
 
 - `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
@@ -1570,10 +1703,38 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–17 were green:
+The latest reported frontend gates for the completed Steps 1–19 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **445/445 PASS** across 55 files — all 414 Step 0–16 tests still pass, plus 31 new for Step 17 — Agents:
+- Vitest: **482/482 PASS** across 61 files — all 445 Step 0–17 tests still pass, plus 37 new for Step 19 — Settings:
+  - Settings (35 across 6 files): `settingsService.test.ts` (new, 7 — mock adapter defaults to `ready: true`
+    and persists to `localStorage`, the Core stub is `ready: false` and every method rejects with
+    `CoreSettingsContractUnavailableError`, `getSettings` returns documented defaults when nothing is
+    persisted, `updateSettings`/`resetSettings` round-trip correctly, corrupted `localStorage` content falls
+    back to defaults rather than throwing), `SettingsProvider.test.tsx` (new, 4 — loads on mount, `update()`/
+    `reset()` propagate to consumers, and `useSettings()` outside a provider falls back to safe defaults
+    rather than throwing), `SettingsPage.test.tsx` (new, 13 — default Appearance tab, real theme switching via
+    `document.documentElement`'s `data-theme` attribute, Notifications toggle persists across a remount, Reset
+    confirmation modal restores the default, Voice/Privacy/Smart Home/AI Apps/Memory/Agents/Automations/About
+    tabs each show real per-service data, an explicit assertion no secret/credential text appears anywhere
+    across every tab), `NotificationsSectionStates.test.tsx` (new, 3 — loading spinner, in-flight saving
+    spinner, error toast on a rejected update), `routing.test.tsx` (new, 7 — live settings-surface module
+    registration, not a 5th primary nav item, not a secondary/"Go to" module, `/settings` renders the real page
+    directly, the pre-existing `/google`/`/microsoft`/`/diagnostics`/`/performance` redirects still resolve,
+    the topbar gear button navigates there, primary nav/no-sidebar invariant), `AppLayoutNotifications.test.tsx`
+    (new, 1 — a real end-to-end check that disabling the Notifications setting empties `AppLayout`'s bell menu
+    and hides its unread badge, confirming this is not a fake toggle)
+  - `features/search/__tests__/searchService.test.ts` (net +2): the Settings nav destination is searchable as
+    an `'app'` group result with exactly one match (no per-toggle leakage); regression tests confirm every
+    pre-existing category (agent/automation/memory/knowledge/room/files) keeps working correctly now that
+    Settings is a live destination — no new search category was added, since `searchApp()` already read
+    `settingsModules` unconditionally before this step
+  - A genuine architectural distinction was made before writing any code: Settings owns exactly one real
+    preference itself (`notificationsEnabled`) — appearance, voice, privacy, and every linked feature
+    (Smart Home, AI Apps, Memory, Agents, Automations) are read directly from that feature's own existing
+    service, never duplicated. This kept every control real and verifiable rather than adding speculative
+    toggles with no underlying effect.
+  - Was 445/445 across 55 files for the completed Steps 1–17:
   - Agents (27 across 4 files): `agentService.test.ts` (new, 11 — mock adapter defaults to `ready: true`, the
     Core stub is `ready: false` and every method rejects with `CoreAgentContractUnavailableError`, seeded
     agents cover every `AgentStatus`, an explicit assertion that no seeded agent description/run summary
@@ -1720,8 +1881,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 18 | Home Assistant + MQTT frontend integration | 🟢 Complete (in-memory mock adapters, one per connector, extend the Step 13 seam additively via a new `ConnectorService`; Core/Home Assistant/MQTT integration pending) |
 | 19 | Memory frontend | 🟢 Complete (in-memory mock adapter, read-only recall + forget only, no semantic/vector search; Core memory integration pending) |
 | 20 | Agents frontend | 🟢 Complete (in-memory mock adapter, observability + enable/disable only — no execution/run action, per "no second agent framework"; Core AgentOrchestrator integration pending) |
-| 21 | Settings frontend | 🔴 Placeholder ← next |
-| 22 | Diagnostics + Performance UI | 🔴 Placeholder / contract dependent |
+| 21 | Settings frontend | 🟢 Complete (one real `SettingsService`-backed preference — `notificationsEnabled`; every other tab reads an existing feature's own service directly; Core settings integration pending) |
+| 22 | Diagnostics + Performance UI | 🔴 Placeholder / contract dependent ← next |
 | 23 | Developer Mode | 🔴 Placeholder / contract dependent |
 | 24 | Unified JARVIS Command Center / cross-surface UX | 🔴 Not Started |
 | 25 | Final JARVIS visual/interaction polish | 🔴 Pending |
@@ -1753,6 +1914,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Home Assistant + MQTT connectors → real connect/disconnect handshake, real credential submission, real entity discovery/sync, and the entity-to-device promotion step (frontend currently ships in-memory mock adapters only, one per connector, that never contact a real instance/broker — see `docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md`)
 - Memory → real memory formation, semantic/vector recall, and retention/expiry policy (frontend currently ships an in-memory mock adapter only — read-only recall list + forget, no create/edit-content, no semantic search — see `docs/CORE_MEMORY_CONTRACT_REQUIRED.md`)
 - Agents → the real Core AgentOrchestrator this surface observes (frontend currently ships an in-memory mock adapter only — agent-role status + activity history + a local enable/disable toggle, no run/execute action, no real permission enforcement — see `docs/CORE_AGENTS_CONTRACT_REQUIRED.md`)
+- Settings → real cross-device preference sync and any Core-controlled data-retention policy (frontend currently ships a `localStorage`-only mock adapter for its one owned preference, `notificationsEnabled`; every other tab reads an existing feature's own service — see `docs/CORE_SETTINGS_CONTRACT_REQUIRED.md`)
 
 These should not be implemented as fake backend systems in React.
 
@@ -1794,7 +1956,8 @@ Do not redo:
 - Home Assistant + MQTT integration foundation (`smartHomeIntegrationService.ts`'s `ConnectorService` seam, one instance per connector — do not introduce a second connector service or a real MQTT/Home Assistant client; the `/smart-home/integrations` connector-card + detail-drawer UI, the `DiscoveredEntity` preview that is never merged into the live Smart Home device list)
 - Memory foundation (`MemoryService` seam, the read-only recall list + detail + forget UI at `/memory` — do not add a create/edit-content method here; a memory represents something JARVIS itself formed, never user-authored in this frontend)
 - Agents foundation (`AgentService` seam, the `/agents` card grid + detail + enable/disable UI — do not add a run/execute method here, and do not build a second `AgentOrchestrator`/planner/tool-executor in React; this surface only observes and toggles the SAME orchestrator that powers Chat/Voice)
-- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations/Memory/Agents stay secondary/command-palette surfaces — none of these are a 5th nav item)
+- Settings foundation (`SettingsService` seam, `SettingsProvider`, the `/settings` 10-tab UI — do not add settings for things that already have a real control elsewhere; Appearance stays owned by `ThemeProvider`, never a second theme engine; Voice/Smart Home/AI Apps/Memory/Agents/Automations tabs stay read-only summaries + links into their own real pages, never a duplicate catalog or a second connect/execute/CRUD surface)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations/Memory/Agents stay secondary/command-palette surfaces, Settings stays the top-bar right-cluster surface — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -1811,10 +1974,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–17.
+8. Do not redo Steps 0–19.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Settings** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 19 — the next unstarted item after Step 17 Agents completed Phase 7. Roadmap item 18 "Automations" is a duplicate reference to the already-complete Step 8, not a new item — item 19 Settings is the real next placeholder).
+11. Continue from **Diagnostics + Performance UI** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 20 — the next unstarted item after Step 19 Settings completed item 19. Item 21 "Developer Mode" is the remaining Phase 8 item after that; both are explicitly contract-dependent placeholders per the roadmap).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -1827,9 +1990,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 17 — Agents (in-memory mock adapter; observability + local enable/disable only, no run/execute action, per "no second agent framework"; Core AgentOrchestrator integration pending). This completes roadmap Phase 7 (items 16-17) in full.
+**LAST COMPLETED FRONTEND STEP:** Step 19 — Settings (one real `SettingsService`-backed preference — `notificationsEnabled`, persisted to `localStorage`; every other tab — Appearance, Voice, Privacy, Smart Home, AI Apps, Memory, Agents, Automations, About — reads an existing feature's own service directly and links to that feature's real page; Core settings/preferences integration pending). This completes roadmap Phase 8 item 19.
 
-**NEXT FRONTEND STEP:** Settings (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 19 — the next unstarted item now that Phase 7 is complete. No Core contract documented; verify before implementing.)
+**NEXT FRONTEND STEP:** Diagnostics + Performance UI (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 20 — the next unstarted item now that item 19 Settings is complete. Explicitly marked "contract dependent" on the roadmap; no Core contract documented — verify before implementing.)
 
 **CURRENT PRODUCT STATE:**
 
@@ -1854,10 +2017,11 @@ A new Emergent workspace/account or coding agent should:
 - Home Assistant + MQTT: complete as a connector status/configuration/diagnostics frontend surface at `/smart-home/integrations`, using in-memory mock adapters (one per connector) behind a new `ConnectorService` seam — no real handshake, no credential ever stored/displayed, synced entities are a preview never promoted into the live Smart Home device list (Core Home Assistant/MQTT connector integration pending)
 - Memory: complete as a read-only recall list + detail + forget frontend surface at `/memory`, using an in-memory mock adapter behind a new `MemoryService` seam — no create/edit-content UI (a memory is never user-authored here), no semantic/vector search, no localStorage use (Core memory integration pending)
 - Agents: complete as an observability + local enable/disable frontend surface at `/agents`, using an in-memory mock adapter behind a new `AgentService` seam — no run/execute action, no agent creation/configuration UI (every "agent" is a fictional named role the single, existing AgentOrchestrator could adopt, not an independent service); the old v1 `/agents → /chat` redirect was removed now that `/agents` has its own real page (Core AgentOrchestrator integration pending)
+- Settings: complete as a 10-tab configuration frontend surface at `/settings`, using a `localStorage`-backed mock adapter behind a new `SettingsService` seam for the one preference it actually owns (`notificationsEnabled`, which genuinely gates `AppLayout`'s notification bell/badge) — Appearance stays owned by the existing `ThemeProvider`, every other tab (Voice/Privacy/Smart Home/AI Apps/Memory/Agents/Automations/About) is a read-only summary over that feature's own existing service with a link to its real page; the pre-existing `/settings` module entry flipped from `planned` to `live` (Core settings/preferences integration pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START SETTINGS automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START DIAGNOSTICS + PERFORMANCE UI automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

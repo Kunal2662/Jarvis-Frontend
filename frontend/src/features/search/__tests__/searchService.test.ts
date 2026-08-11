@@ -733,4 +733,55 @@ describe('search service seam', () => {
     expect(groups[0].category).toBe('chat');
     expect(groups[0].results[0].title).toContain('quarterly review');
   });
+
+  // Step 19 — Settings. Per searchService.ts's 'app' category doc comment,
+  // Settings was ALREADY one of the destinations `searchApp()` covers (it
+  // reads `settingsModules` regardless of `status`) — flipping
+  // app/modules.tsx's `/settings` entry from 'planned' to 'live' required
+  // no searchService/mockSearchAdapter changes. No new 'settings' category
+  // was added, and no individual setting/toggle is a separate search
+  // result — only the Settings destination itself (per
+  // docs/CORE_SETTINGS_CONTRACT_REQUIRED.md's scope note).
+  it('the Settings nav destination is searchable as an "app" group result', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('settings');
+
+    const appGroup = groups.find((g) => g.category === 'app');
+    expect(appGroup?.results.some((r) => r.title === 'Settings' && r.path === '/settings')).toBe(true);
+    // Exactly one result — no per-toggle entries (Appearance, Notifications,
+    // etc.) leak into Universal Search.
+    expect(appGroup?.results.filter((r) => r.path === '/settings')).toHaveLength(1);
+  });
+
+  it('regression: agents, automations, memory, knowledge, rooms, and files search still work correctly after Settings became a live destination', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+
+    const agentGroups = await mockSearchService.search('research agent');
+    expect(agentGroups.find((g) => g.category === 'agent')?.results.map((r) => r.title)).toContain(
+      'Research Agent',
+    );
+
+    const automationGroups = await mockSearchService.search('morning');
+    expect(automationGroups.find((g) => g.category === 'automation')?.results.map((r) => r.title)).toContain(
+      'Morning Brief',
+    );
+
+    const memoryGroups = await mockSearchService.search('concise');
+    expect(memoryGroups.find((g) => g.category === 'memory')?.results.map((r) => r.title)).toContain(
+      'Jarvis should use concise responses.',
+    );
+
+    const knowledgeGroups = await mockSearchService.search('checklist');
+    expect(knowledgeGroups.find((g) => g.category === 'knowledge')?.results.map((r) => r.title)).toContain(
+      'Workshop Safety Checklist',
+    );
+
+    const roomGroups = await mockSearchService.search('outdoor');
+    expect(roomGroups.find((g) => g.category === 'room')?.results.map((r) => r.title)).toEqual(['Outdoor']);
+
+    const filesGroups = await mockSearchService.search('budget');
+    expect(filesGroups.find((g) => g.category === 'files')?.results.map((r) => r.title)).toContain(
+      'Household budget.xlsx',
+    );
+  }, 15000);
 });

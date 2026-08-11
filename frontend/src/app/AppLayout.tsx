@@ -31,6 +31,7 @@ import {
 import { comingSoonModules, liveSecondaryModules, settingsModules, topBarModules } from './modules';
 import { VoiceOverlay } from '../features/voice/VoiceOverlay';
 import { UniversalSearch } from '../features/search/UniversalSearch';
+import { useSettings } from '../features/settings/SettingsProvider';
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ export function AppLayout() {
   const [query, setQuery] = useState('');
   const [clock, setClock] = useState(() => new Date());
   const { toast } = useToast();
+  const { settings } = useSettings();
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 30_000);
@@ -128,7 +130,11 @@ export function AppLayout() {
     [navigate, location.pathname],
   );
 
-  const notifGroups: NotificationGroup[] = [
+  // Gated by Settings → Notifications (`notificationsEnabled`, see
+  // SettingsProvider) — a real, verifiable setting: turning it off empties
+  // the bell menu and hides its unread badge, rather than a toggle with no
+  // effect. See docs/CORE_SETTINGS_CONTRACT_REQUIRED.md.
+  const notifGroups: NotificationGroup[] = !settings.notificationsEnabled ? [] : [
     {
       label: 'Today',
       items: [
@@ -180,7 +186,12 @@ export function AppLayout() {
               <IconButton label="Notifications" data-testid="open-notifications" onClick={() => setNotifOpen(true)}>
                 <span className="relative">
                   <Bell className="size-[18px]" />
-                  <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent ring-2 ring-surface-base" />
+                  {notifGroups.some((g) => g.items.some((i) => i.unread)) && (
+                    <span
+                      data-testid="notifications-unread-badge"
+                      className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent ring-2 ring-surface-base"
+                    />
+                  )}
                 </span>
               </IconButton>
               <QuickSettings

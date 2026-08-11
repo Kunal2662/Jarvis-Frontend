@@ -1,6 +1,6 @@
 # JARVIS Frontend Implementation Roadmap
 
-**Snapshot:** 2026-08-09  
+**Snapshot:** 2026-08-11  
 **Current frontend:** `Jarvis-Frontend-main`  
 **Status model:** 🟢 Complete · 🟡 Active · 🔴 Not Started · ⚠️ Blocked/verification pending
 
@@ -253,10 +253,23 @@ Frontend surface (`features/automations/`) is implemented against a mock/local `
 ## Phase 8 — System
 
 ### 19. Settings
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 19) — one real `SettingsService`-backed
+preference (`notificationsEnabled`, persisted to `localStorage`) at
+`/settings`; every other tab (Appearance, Voice, Privacy, Smart Home, AI
+Apps, Memory, Agents, Automations, About) reads an existing feature's own
+service directly and links to that feature's real page, rather than
+duplicating it. Appearance stays owned by the pre-existing `ThemeProvider`
+— no second theme engine. No Developer Mode surface, no AI
+provider/credential management, no connector connect/disconnect UI, and
+no bulk Memory/Automations mutation were built here — all explicitly out
+of scope. No verified Core settings/preferences contract is documented
+anywhere in this checkpoint (confirmed via an explicit repository search
+before implementation) — none was invented; see
+`docs/CORE_SETTINGS_CONTRACT_REQUIRED.md`. Details in
+`docs/FRONTEND_PROGRESS.md` Step 19.
 
 ### 20. Diagnostics + Performance UI
-**Status:** 🔴 Placeholder / Core contract dependent
+**Status:** 🔴 Placeholder / Core contract dependent ← next
 
 ### 21. Developer Mode
 **Status:** 🔴 Placeholder / contract dependent

@@ -47,7 +47,7 @@ export function CommandPalette({
         <DialogPrimitive.Overlay className="fixed inset-0 z-palette bg-black/60 backdrop-blur-md data-[state=open]:animate-fade-in" />
         <DialogPrimitive.Content
           aria-label="Command palette"
-          className="glass glass-strong fixed left-1/2 top-[15vh] z-palette w-[calc(100%-2rem)] max-w-[640px] -translate-x-1/2 overflow-hidden rounded-2xl shadow-e4 outline-none data-[state=open]:animate-scale-in"
+          className="glass glass-strong fixed left-1/2 top-1/2 z-palette w-[calc(100%-2rem)] max-w-[640px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl shadow-e4 outline-none data-[state=open]:animate-scale-in"
         >
           <DialogPrimitive.Title className="sr-only">Command palette</DialogPrimitive.Title>
           <Command

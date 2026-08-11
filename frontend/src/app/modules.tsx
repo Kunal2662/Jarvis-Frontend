@@ -110,7 +110,10 @@ export const modules: ModuleDef[] = [
   // redirect was removed now that `/agents` has its own real page.)
 
   // ── Settings (right cluster, not the main strip) ──
-  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/google', '/microsoft', '/diagnostics', '/performance'] },
+  // Step 19: a real page now exists — configures existing systems only
+  // (Appearance/ThemeProvider, Voice/AgentService/etc.), never a second
+  // copy of them. See docs/CORE_SETTINGS_CONTRACT_REQUIRED.md.
+  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'live', core: 'System', ready: true, redirectFrom: ['/google', '/microsoft', '/diagnostics', '/performance'] },
 
   // ── Developer Mode (hidden by default) ──
   { path: '/design', label: 'Design System', icon: Component, surface: 'developer', audience: 'developer', status: 'live', ready: true },

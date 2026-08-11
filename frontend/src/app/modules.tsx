@@ -81,7 +81,7 @@ export interface ModuleDef {
 export const modules: ModuleDef[] = [
   // ── PRIMARY top bar — current / live surfaces only ──
   { path: '/', label: 'Home', icon: LayoutDashboard, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M8', ready: true },
-  { path: '/chat', label: 'Chat', icon: MessageSquare, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M10', ready: true, badge: 'live', redirectFrom: ['/agents'] },
+  { path: '/chat', label: 'Chat', icon: MessageSquare, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M10', ready: true, badge: 'live' },
   { path: '/voice', label: 'Voice', icon: Mic, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M10', ready: true, action: 'voice' },
   { path: '/automations', label: 'Automations', icon: Workflow, surface: 'topbar', audience: 'everyone', status: 'live', core: 'M7', ready: true, redirectFrom: ['/automation', '/browser'] },
 
@@ -95,6 +95,7 @@ export const modules: ModuleDef[] = [
   { path: '/files', label: 'Files', icon: FolderOpen, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M11', ready: true },
   { path: '/smart-home', label: 'Smart Home', icon: House, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M12', ready: true },
   { path: '/memory', label: 'Memory', icon: Brain, surface: 'secondary', audience: 'everyone', status: 'live', ready: true },
+  { path: '/agents', label: 'Agents', icon: Bot, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10', ready: true },
 
   // (Device Management and Home Assistant + MQTT, roadmap items 14-15,
   // stayed sub-routes reached from within Smart Home's own entry points
@@ -103,7 +104,10 @@ export const modules: ModuleDef[] = [
   // surfaces as of Step 16 — every secondary module above is live. Memory
   // has no confirmed Core milestone number yet (`core` intentionally
   // omitted — see docs/CORE_MEMORY_CONTRACT_REQUIRED.md), unlike every
-  // other entry here which cites one.)
+  // other entry here which cites one. Agents (Step 17) reuses Chat/Voice's
+  // M10 — see docs/CORE_AGENTS_CONTRACT_REQUIRED.md: it exposes the same
+  // AgentOrchestrator, never a second one. The old v1 `/agents → /chat`
+  // redirect was removed now that `/agents` has its own real page.)
 
   // ── Settings (right cluster, not the main strip) ──
   { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'planned', core: 'System', redirectFrom: ['/google', '/microsoft', '/diagnostics', '/performance'] },

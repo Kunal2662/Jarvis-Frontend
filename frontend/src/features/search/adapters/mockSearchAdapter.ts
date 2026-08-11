@@ -8,6 +8,7 @@ import { mockCalendarService } from '../../calendar/adapters/mockCalendarAdapter
 import { mockFilesService } from '../../files/adapters/mockFilesAdapter';
 import { mockSmartHomeService } from '../../smartHome/adapters/mockSmartHomeAdapter';
 import { mockMemoryService } from '../../memory/adapters/mockMemoryAdapter';
+import { mockAgentService } from '../../agents/adapters/mockAgentAdapter';
 import { loadMessages } from '../../chat/chatStore';
 import { liveSecondaryModules, settingsModules, topBarModules } from '../../../app/modules';
 
@@ -268,6 +269,23 @@ async function searchMemories(term: string): Promise<SearchResult[]> {
     }));
 }
 
+/** The Agents mock dataset (Step 17) — search by name/description only.
+ *  Deep-links to `/agents` and pre-selects the matched agent's detail
+ *  drawer. */
+async function searchAgents(term: string): Promise<SearchResult[]> {
+  const agents = await mockAgentService.getAgents();
+  return agents
+    .filter((a) => matches(a.name, term) || matches(a.description, term))
+    .map((a) => ({
+      id: `agent-${a.id}`,
+      category: 'agent' as const,
+      title: a.name,
+      description: a.description,
+      path: '/agents',
+      navState: { agentId: a.id },
+    }));
+}
+
 /** This browser's own recent Chat messages (localStorage, Step 7) — real data,
  *  not fabricated history. Only the user's own messages are searched. */
 function searchChat(term: string): SearchResult[] {
@@ -298,6 +316,7 @@ const LABELS: Record<SearchResult['category'], string> = {
   device: 'Devices',
   scene: 'Scenes',
   memory: 'Memory',
+  agent: 'Agents',
 };
 
 export const mockSearchService: SearchService = {
@@ -309,19 +328,21 @@ export const mockSearchService: SearchService = {
     const term = query.trim().toLowerCase();
     if (!term) return [];
 
-    const [automation, knowledge, aiApp, note, task, calendar, files, room, device, scene, memory] = await Promise.all([
-      searchAutomations(term),
-      searchKnowledge(term),
-      searchAiApps(term),
-      searchNotes(term),
-      searchTasks(term),
-      searchCalendar(term),
-      searchFiles(term),
-      searchRooms(term),
-      searchDevices(term),
-      searchScenes(term),
-      searchMemories(term),
-    ]);
+    const [automation, knowledge, aiApp, note, task, calendar, files, room, device, scene, memory, agent] =
+      await Promise.all([
+        searchAutomations(term),
+        searchKnowledge(term),
+        searchAiApps(term),
+        searchNotes(term),
+        searchTasks(term),
+        searchCalendar(term),
+        searchFiles(term),
+        searchRooms(term),
+        searchDevices(term),
+        searchScenes(term),
+        searchMemories(term),
+        searchAgents(term),
+      ]);
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
     const app = searchApp(term);
     const chat = searchChat(term);
@@ -339,6 +360,7 @@ export const mockSearchService: SearchService = {
       { category: 'device', label: LABELS.device, results: device },
       { category: 'scene', label: LABELS.scene, results: scene },
       { category: 'memory', label: LABELS.memory, results: memory },
+      { category: 'agent', label: LABELS.agent, results: agent },
       { category: 'chat', label: LABELS.chat, results: chat },
     ];
     const groups = allGroups.filter((g) => g.results.length > 0);

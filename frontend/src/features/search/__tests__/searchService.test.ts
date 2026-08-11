@@ -38,10 +38,12 @@ describe('search service seam', () => {
     const { mockSearchService } = await import('../adapters/mockSearchAdapter');
     const groups = await mockSearchService.search('morning');
 
-    // Honest broadening, not a weakening (Step 16): the seeded memory "Usually
-    // asks for a morning briefing around 8 AM" legitimately also matches
-    // "morning" — mirrors how Step 13's room/device overlaps were handled.
-    expect(groups).toHaveLength(2);
+    // Honest broadening, not a weakening: the seeded memory "Usually asks for
+    // a morning briefing around 8 AM" (Step 16) and the seeded "Daily
+    // Briefing Agent" ("Compiles your morning briefing...", Step 17)
+    // legitimately also match "morning" — mirrors how Step 13's room/device
+    // overlaps were handled.
+    expect(groups).toHaveLength(3);
     expect(groups[0].category).toBe('automation');
     expect(groups[0].label).toBe('Automations');
     expect(groups[0].results.map((r) => r.title)).toContain('Morning Brief');
@@ -51,6 +53,9 @@ describe('search service seam', () => {
 
     const memoryGroup = groups.find((g) => g.category === 'memory');
     expect(memoryGroup?.results.map((r) => r.title)).toContain('Usually asks for a morning briefing around 8 AM.');
+
+    const agentGroup = groups.find((g) => g.category === 'agent');
+    expect(agentGroup?.results.map((r) => r.title)).toContain('Daily Briefing Agent');
   });
 
   it('a query matching a live nav destination returns a categorized "app" group', async () => {
@@ -649,6 +654,73 @@ describe('search service seam', () => {
   }, 15000);
 
   it('regression: recent chat search still works alongside the new Memory category', async () => {
+    const { saveMessages } = await import('../../chat/chatStore');
+    saveMessages([
+      { id: 'm1', role: 'user', content: 'Remind me about the quarterly review' },
+      { id: 'm2', role: 'assistant', content: 'Sure thing — quarterly review at 3pm.' },
+    ]);
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('quarterly');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('chat');
+    expect(groups[0].results[0].title).toContain('quarterly review');
+  });
+
+  // ── Step 17 — Agents ────────────────────────────────────────────────────
+
+  it('a query matching only an agent\'s name returns a categorized "agent" group (Step 17)', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('Research Agent');
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe('agent');
+    expect(groups[0].results[0].title).toBe('Research Agent');
+    expect(groups[0].results[0].path).toBe('/agents');
+    expect(groups[0].results[0].navState).toEqual({ agentId: 'agent-research' });
+  });
+
+  it('the Agents nav destination is searchable as an "app" group result', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+    const groups = await mockSearchService.search('agents');
+
+    const appGroup = groups.find((g) => g.category === 'app');
+    expect(appGroup?.results.some((r) => r.title === 'Agents' && r.path === '/agents')).toBe(true);
+  });
+
+  it('regression: automations, memory, knowledge, rooms, and files search still work correctly after adding the Agents category', async () => {
+    const { mockSearchService } = await import('../adapters/mockSearchAdapter');
+
+    const automationGroups = await mockSearchService.search('morning');
+    expect(automationGroups.find((g) => g.category === 'automation')?.results.map((r) => r.title)).toContain(
+      'Morning Brief',
+    );
+    // "morning" legitimately also matches the seeded "Daily Briefing Agent"
+    // ("Compiles your morning briefing...") — honest overlap, not a bug.
+    expect(automationGroups.find((g) => g.category === 'agent')?.results.map((r) => r.title)).toContain(
+      'Daily Briefing Agent',
+    );
+
+    const memoryGroups = await mockSearchService.search('concise');
+    expect(memoryGroups.find((g) => g.category === 'memory')?.results.map((r) => r.title)).toContain(
+      'Jarvis should use concise responses.',
+    );
+
+    const knowledgeGroups = await mockSearchService.search('checklist');
+    expect(knowledgeGroups.find((g) => g.category === 'knowledge')?.results.map((r) => r.title)).toContain(
+      'Workshop Safety Checklist',
+    );
+
+    const roomGroups = await mockSearchService.search('outdoor');
+    expect(roomGroups.find((g) => g.category === 'room')?.results.map((r) => r.title)).toEqual(['Outdoor']);
+
+    const filesGroups = await mockSearchService.search('budget');
+    expect(filesGroups.find((g) => g.category === 'files')?.results.map((r) => r.title)).toContain(
+      'Household budget.xlsx',
+    );
+  }, 15000);
+
+  it('regression: recent chat search still works alongside the new Agents category', async () => {
     const { saveMessages } = await import('../../chat/chatStore');
     saveMessages([
       { id: 'm1', role: 'user', content: 'Remind me about the quarterly review' },

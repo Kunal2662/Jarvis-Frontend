@@ -226,7 +226,22 @@ pipeline internals. Registered as a fourth Step-13-style Universal Search
 category. Details in `docs/FRONTEND_PROGRESS.md` Step 16.
 
 ### 17. Agents
-**Status:** 🔴 Placeholder
+**Status:** 🟢 Complete (frontend Step 17) — observability + enable/disable
+only at `/agents`, via a new `AgentService` seam
+(`features/agents/agentService.ts`). Per
+`docs/JARVIS_CORE_FRONTEND_MAPPING.md`'s own note for Agents ("Expose
+existing orchestration; no second agent framework"), this is deliberately
+**not** a catalog of independent, user-invokable services — every seeded
+"agent" is a fictional named role the single, existing AgentOrchestrator
+(Steps 4-5's Chat/Voice) could adopt when reporting activity. No
+run/execute action, no agent creation/configuration UI, no real permission
+enforcement. No verified Core Agents contract is documented anywhere in
+this checkpoint (confirmed via an explicit repository search before
+implementation) — none was invented; see
+`docs/CORE_AGENTS_CONTRACT_REQUIRED.md`. The old v1 `/agents → /chat`
+redirect was removed now that `/agents` has its own real page. Registered
+as a fifth Step-13-style Universal Search category. Details in
+`docs/FRONTEND_PROGRESS.md` Step 17.
 
 ### 18. Automations
 **Status:** 🟢 Complete (frontend Step 8) — in-memory mock adapter; real Core execution/scheduling integration pending

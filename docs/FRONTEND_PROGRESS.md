@@ -1280,6 +1280,105 @@ JARVIS Core and are pending a verified Core contract (see
 
 ---
 
+## Step 17 — Agents
+
+**Status: COMPLETE — frontend using an in-memory mock adapter; Core AgentOrchestrator integration pending**
+
+Per `docs/JARVIS_CORE_FRONTEND_MAPPING.md`'s own row for Agents ("M10 |
+🟡 Active | 🔴/placeholder | **Expose existing orchestration; no second
+agent framework.**"), this step required a genuine scope correction from
+the literal word "Agents": every other mention of "agent" in this
+checkpoint ties back to the single, existing `AgentOrchestrator` that
+already powers Chat/Voice (Steps 4-5) — not a catalog of independent,
+user-invokable autonomous services. Corroborating evidence found before
+implementing anything: the old v1 `/agents` route already redirected to
+`/chat`; `Automation.actions` (Step 8) already includes a `'run-agent'`
+action type, i.e. "running an agent" is already modeled as a Core-owned
+*consequence* an Automation triggers, not something this surface hands the
+user a button to fire; and the Home dashboard's pre-existing "Active
+agents" stat and "AI Timeline" entries (e.g. "Research Agent completed a
+market brief") are flavor-text mock data illustrating named *roles* the
+orchestrator adopts when reporting activity, not independently-executable
+services. Given this, this step implements Agents as an **observability +
+lightweight state-management surface — never an execution surface**.
+
+Architecture:
+
+```text
+AgentsPage
+  ↓
+AgentService (getAgents/getAgent/getRuns/setEnabled — no run/execute method)
+  ↓
+Mock Agent Adapter (in-memory) / Future Core Adapter (ready: false)
+```
+
+Implemented:
+
+- `agentService.ts` — the `AgentService` seam. Types: `AgentStatus`
+  (`active`/`idle`/`disabled`), `Agent` (`id`, `name`, `description`,
+  `status`, `capabilities`, `lastRunAt?`), `AgentRunStatus`
+  (`completed`/`failed` only — always already-resolved history, never a
+  live `queued`/`running` state this UI itself initiated), `AgentRun`
+  (`id`, `agentId`, `status`, `startedAt`, `completedAt`, `summary`).
+  Deliberately **no create/run/execute method** — a memory-style
+  "never user-authored" rule extended to agents: this frontend never
+  simulates an LLM planning/execution loop
+- `adapters/mockAgentAdapter.ts` — 5 seeded fictional agent roles (Research
+  Agent, Daily Briefing Agent, System Health Agent, Task Planning Agent,
+  Smart Home Agent) spanning all three statuses (2 active, 2 idle, 1
+  disabled) with a shared activity history dataset (7 `AgentRun` entries
+  across 4 agents; the disabled Smart Home Agent has zero runs, honestly
+  exercising the empty-history state). `setEnabled(id, enabled)` is a pure
+  local state toggle (`disabled` ⇄ `idle`), mirroring Automations'
+  `setEnabled` — never an execution action
+- `adapters/coreAgentAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`), every method rejects with
+  `CoreAgentContractUnavailableError`; no Core Agents/AgentOrchestrator
+  endpoint invented
+- `AgentsPage.tsx` (new route `/agents`) — a card grid (`AgentCard.tsx`,
+  mirrors `AutomationCard.tsx`) with status badge, capability badges, and
+  an enable/disable `Switch`; stat cards (Total/Active/Idle/Disabled);
+  clicking a card opens `AgentDetailDrawer.tsx` (capabilities, last
+  activity, a read-only `AgentRunHistoryList.tsx` fetched per-agent on
+  selection — scoped loading state so already-loaded agent details never
+  disappear while just the history is still fetching — and the same
+  enable/disable toggle). The same prominent simulation-disclosure banner
+  pattern from Steps 13-16 is repeated here, explicit that the page "does
+  not run or execute anything"
+- Routing: `/agents` wired in `App.tsx`; a **new** `app/modules.tsx` entry
+  (`surface: 'secondary'`, `status: 'live'`, `ready: true`, `core: 'M10'`
+  — reusing Chat/Voice's milestone since Agents exposes the same
+  orchestrator, never a second one). The old v1 `/agents → /chat` redirect
+  (`Chat`'s `redirectFrom`) was removed now that `/agents` has its own
+  real page — verified via a dedicated regression test
+- **Universal Search integration**: Agents became an additional searchable
+  category (`'agent'`), searched by name/description, deep-linking to
+  `/agents` with `location.state.agentId`. Regression tests confirm every
+  prior category still works, including an honest broadening (not a
+  weakening) of an existing Step 8 test: "morning" now legitimately also
+  matches the seeded "Daily Briefing Agent" ("Compiles your morning
+  briefing…"), alongside the Step 16 "Usually asks for a morning
+  briefing…" memory and the pre-existing "Morning Brief" automation — the
+  same room/device-style overlap pattern Step 13 established
+- No manual "Run agent" action, no agent creation/configuration UI, no
+  real permission enforcement, no second chat interface — all per
+  `docs/CORE_AGENTS_CONTRACT_REQUIRED.md`'s scope boundary
+- `docs/CORE_AGENTS_CONTRACT_REQUIRED.md` added — no verified Core Agents
+  contract was found anywhere in this frontend checkpoint (confirmed via
+  an explicit repository search before implementation, excluding
+  `2.0-main`/`backend/` per this task's scope), so none was invented
+
+**Agents is mock/local to this frontend session only.** No real Core
+AgentOrchestrator is ever contacted; a full page reload resets every
+agent's enabled/disabled state and the (fixed, never-mutated) activity
+history back to seed data. Real agent-role identity, the relationship
+between this surface's activity and Chat's own conversation history, and
+enable/disable semantics on Core's actual orchestrator remain owned by
+JARVIS Core and are pending a verified Core contract (see
+`docs/CORE_AGENTS_CONTRACT_REQUIRED.md`).
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -1454,6 +1553,13 @@ Important implemented areas in this checkpoint include:
 - `features/memory/adapters/mockMemoryAdapter.ts`, `adapters/coreMemoryAdapter.ts` (Step 16)
 - `features/memory/__tests__/`
 
+### Agents
+
+- `features/agents/AgentsPage.tsx`, `AgentCard.tsx`, `AgentDetailDrawer.tsx`, `AgentRunHistoryList.tsx` (Step 17)
+- `features/agents/agentService.ts`, `agentFormat.ts` (Step 17)
+- `features/agents/adapters/mockAgentAdapter.ts`, `adapters/coreAgentAdapter.ts` (Step 17)
+- `features/agents/__tests__/`
+
 ### Navigation
 
 - `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
@@ -1464,9 +1570,49 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–16 were green:
+The latest reported frontend gates for the completed Steps 1–17 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
+- Vitest: **445/445 PASS** across 55 files — all 414 Step 0–16 tests still pass, plus 31 new for Step 17 — Agents:
+  - Agents (27 across 4 files): `agentService.test.ts` (new, 11 — mock adapter defaults to `ready: true`, the
+    Core stub is `ready: false` and every method rejects with `CoreAgentContractUnavailableError`, seeded
+    agents cover every `AgentStatus`, an explicit assertion that no seeded agent description/run summary
+    matches a password/API-key/token/secret pattern, `getAgent`/`getRuns` lookups + not-found rejections
+    (newest-first ordering asserted), the disabled seeded agent honestly has zero runs, `setEnabled` toggling
+    disabled ⇄ idle + not-found rejection, and confirmation there is no run/execute/create method),
+    `AgentsPage.test.tsx` (new, 7 — the agent card grid + stat cards + simulation banner, enabling a disabled
+    agent via its card toggle, opening the detail drawer with capabilities + activity history, the honest "no
+    activity yet" empty state for a zero-run agent, disabling from the detail drawer, an explicit assertion no
+    secret/credential text appears anywhere on the page, deep-linking to a specific agent's drawer),
+    `AgentsPageStates.test.tsx` (new, 5 — loading/empty/error+retry/unavailable/ready), `routing.test.tsx`
+    (new, 4 — live secondary module registration, not a 5th primary nav item, `/agents` renders the real page
+    directly with the old v1 `/agents → /chat` redirect confirmed removed, primary nav/no-sidebar invariant)
+  - `features/search/__tests__/searchService.test.ts` (net +4): a query matching only an agent's name returns
+    a categorized `'agent'` group with a working deep-link `navState.agentId`; the Agents nav destination is
+    searchable as an `'app'` group result; regression tests confirm every pre-existing category
+    (automation/memory/knowledge/room/files/chat) keeps working correctly alongside the new one — including
+    a second legitimate overlap on the same Step 8 "morning" query, honestly broadened again rather than
+    weakened: the seeded "Daily Briefing Agent" ("Compiles your morning briefing…") legitimately also matches,
+    alongside the Step 16 memory and the pre-existing automation (mirrors how Step 13's room/device overlaps
+    were handled)
+  - A genuine scope correction was made before writing any code (not a bug found after the fact): the literal
+    word "Agents" would suggest a catalog of independent, user-invokable services (as the task's own
+    illustrative examples suggested), but `docs/JARVIS_CORE_FRONTEND_MAPPING.md`'s own row for Agents reads
+    "Expose existing orchestration; **no second agent framework**" — every "agent" mention elsewhere in this
+    checkpoint ties to the single, existing `AgentOrchestrator` behind Chat/Voice, the old v1 `/agents` route
+    already redirected to `/chat`, and `Automation.actions` (Step 8) already models "running an agent" as a
+    Core-owned consequence, not a frontend-triggered action. Implemented as observability + a local
+    enable/disable toggle only — no run/execute action anywhere in this surface.
+  - Note: as with prior steps, running the full suite with Vitest's default parallel worker pool — or even
+    `--no-file-parallelism` runs sharing the machine with other concurrent work — can produce intermittent
+    timeout flakes in unrelated tests under CPU contention on this development machine (a `DeviceManagementPage.test.tsx`
+    test with real simulated-latency delays was observed flaking transiently across a couple of full-suite runs
+    this step, always passing cleanly — 11/11 — when that file was run in isolation); every test — new and
+    pre-existing — passes reliably given an uncontended run, which is what was used to produce the 445/445
+    result above.
+
+Prior to Step 17, Steps 1–16 gates (414/414 tests across 51 files) were also green:
+- TypeScript/typecheck: **PASS**
 - Vitest: **414/414 PASS** across 51 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
   not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps)
   — all 384 Step 0–15 tests still pass (including the Step 12 Calendar date-drift test, now fixed during
@@ -1573,8 +1719,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 17 | Device Management / Connectivity UI | 🟢 Complete (in-memory mock adapter, extends the Step 13 seam additively; Core/Home Assistant/MQTT integration pending) |
 | 18 | Home Assistant + MQTT frontend integration | 🟢 Complete (in-memory mock adapters, one per connector, extend the Step 13 seam additively via a new `ConnectorService`; Core/Home Assistant/MQTT integration pending) |
 | 19 | Memory frontend | 🟢 Complete (in-memory mock adapter, read-only recall + forget only, no semantic/vector search; Core memory integration pending) |
-| 20 | Agents frontend | 🔴 Placeholder ← next |
-| 21 | Settings frontend | 🔴 Placeholder |
+| 20 | Agents frontend | 🟢 Complete (in-memory mock adapter, observability + enable/disable only — no execution/run action, per "no second agent framework"; Core AgentOrchestrator integration pending) |
+| 21 | Settings frontend | 🔴 Placeholder ← next |
 | 22 | Diagnostics + Performance UI | 🔴 Placeholder / contract dependent |
 | 23 | Developer Mode | 🔴 Placeholder / contract dependent |
 | 24 | Unified JARVIS Command Center / cross-surface UX | 🔴 Not Started |
@@ -1606,6 +1752,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Smart Home + Device Management → real device discovery/command execution/realtime state via Home Assistant/MQTT connectors, real pairing/onboarding, and real health/diagnostics telemetry (frontend currently ships an in-memory mock adapter only, normalized entities, no vendor-specific UI, no real discovery protocol — see `docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`)
 - Home Assistant + MQTT connectors → real connect/disconnect handshake, real credential submission, real entity discovery/sync, and the entity-to-device promotion step (frontend currently ships in-memory mock adapters only, one per connector, that never contact a real instance/broker — see `docs/CORE_HOME_ASSISTANT_MQTT_CONTRACT_REQUIRED.md`)
 - Memory → real memory formation, semantic/vector recall, and retention/expiry policy (frontend currently ships an in-memory mock adapter only — read-only recall list + forget, no create/edit-content, no semantic search — see `docs/CORE_MEMORY_CONTRACT_REQUIRED.md`)
+- Agents → the real Core AgentOrchestrator this surface observes (frontend currently ships an in-memory mock adapter only — agent-role status + activity history + a local enable/disable toggle, no run/execute action, no real permission enforcement — see `docs/CORE_AGENTS_CONTRACT_REQUIRED.md`)
 
 These should not be implemented as fake backend systems in React.
 
@@ -1646,7 +1793,8 @@ Do not redo:
 - Device Management foundation (the same `SmartHomeService` seam extended additively with `updateDevice`/`removeDevice`/`pairDevice` and the optional health/diagnostics `Device` fields — do not introduce a second `DeviceManagementService`; the `/smart-home/devices` list + drawer + pair-device UI)
 - Home Assistant + MQTT integration foundation (`smartHomeIntegrationService.ts`'s `ConnectorService` seam, one instance per connector — do not introduce a second connector service or a real MQTT/Home Assistant client; the `/smart-home/integrations` connector-card + detail-drawer UI, the `DiscoveredEntity` preview that is never merged into the live Smart Home device list)
 - Memory foundation (`MemoryService` seam, the read-only recall list + detail + forget UI at `/memory` — do not add a create/edit-content method here; a memory represents something JARVIS itself formed, never user-authored in this frontend)
-- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations/Memory stay secondary/command-palette surfaces — none of these are a 5th nav item)
+- Agents foundation (`AgentService` seam, the `/agents` card grid + detail + enable/disable UI — do not add a run/execute method here, and do not build a second `AgentOrchestrator`/planner/tool-executor in React; this surface only observes and toggles the SAME orchestrator that powers Chat/Voice)
+- the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations/Memory/Agents stay secondary/command-palette surfaces — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
 
@@ -1663,10 +1811,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–16.
+8. Do not redo Steps 0–17.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Step 17 — Agents** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 17 — the next unstarted item after Step 16 Memory. No Core Agents contract is documented anywhere in this checkpoint — verify before implementing, not a new mock).
+11. Continue from **Settings** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 19 — the next unstarted item after Step 17 Agents completed Phase 7. Roadmap item 18 "Automations" is a duplicate reference to the already-complete Step 8, not a new item — item 19 Settings is the real next placeholder).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -1679,9 +1827,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 16 — Memory (in-memory mock adapter; read-only recall list + detail + forget, no create/edit-content, no semantic/vector search; Core memory integration pending).
+**LAST COMPLETED FRONTEND STEP:** Step 17 — Agents (in-memory mock adapter; observability + local enable/disable only, no run/execute action, per "no second agent framework"; Core AgentOrchestrator integration pending). This completes roadmap Phase 7 (items 16-17) in full.
 
-**NEXT FRONTEND STEP:** Step 17 — Agents (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 7, item 17 — the next unstarted item after Step 16 Memory. No Core contract documented; verify before implementing.)
+**NEXT FRONTEND STEP:** Settings (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 19 — the next unstarted item now that Phase 7 is complete. No Core contract documented; verify before implementing.)
 
 **CURRENT PRODUCT STATE:**
 
@@ -1705,10 +1853,11 @@ A new Emergent workspace/account or coding agent should:
 - Device Management: complete as a per-device rename/room-reassignment, pairing, removal, and read-only health/diagnostics/connector frontend surface at `/smart-home/devices`, extending the Smart Home `SmartHomeService` seam additively using the same in-memory mock adapter — no connector configuration UI, no real device-discovery protocol (Core Smart Home/connector integration pending)
 - Home Assistant + MQTT: complete as a connector status/configuration/diagnostics frontend surface at `/smart-home/integrations`, using in-memory mock adapters (one per connector) behind a new `ConnectorService` seam — no real handshake, no credential ever stored/displayed, synced entities are a preview never promoted into the live Smart Home device list (Core Home Assistant/MQTT connector integration pending)
 - Memory: complete as a read-only recall list + detail + forget frontend surface at `/memory`, using an in-memory mock adapter behind a new `MemoryService` seam — no create/edit-content UI (a memory is never user-authored here), no semantic/vector search, no localStorage use (Core memory integration pending)
+- Agents: complete as an observability + local enable/disable frontend surface at `/agents`, using an in-memory mock adapter behind a new `AgentService` seam — no run/execute action, no agent creation/configuration UI (every "agent" is a fictional named role the single, existing AgentOrchestrator could adopt, not an independent service); the old v1 `/agents → /chat` redirect was removed now that `/agents` has its own real page (Core AgentOrchestrator integration pending)
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START STEP 17 automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START SETTINGS automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

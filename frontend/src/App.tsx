@@ -15,6 +15,7 @@ import { SmartHomePage } from './features/smartHome/SmartHomePage';
 import { DeviceManagementPage } from './features/smartHome/DeviceManagementPage';
 import { IntegrationsPage } from './features/smartHome/IntegrationsPage';
 import { MemoryPage } from './features/memory/MemoryPage';
+import { AgentsPage } from './features/agents/AgentsPage';
 import { DesignShowcase } from './pages/DesignShowcase';
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 
@@ -33,6 +34,7 @@ const PAGES = [
   '/smart-home/devices',
   '/smart-home/integrations',
   '/memory',
+  '/agents',
   '/design',
 ];
 
@@ -54,6 +56,7 @@ export function App() {
         <Route path="/smart-home/devices" element={<DeviceManagementPage />} />
         <Route path="/smart-home/integrations" element={<IntegrationsPage />} />
         <Route path="/memory" element={<MemoryPage />} />
+        <Route path="/agents" element={<AgentsPage />} />
         <Route path="/design" element={<DesignShowcase />} />
 
         {/* Placeholder surfaces (Home/Chat/Voice widgets ship in later phases). */}

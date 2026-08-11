@@ -38,6 +38,8 @@
  *  - 'memory'     → the Memory mock dataset (Step 16) — searched by content
  *                   only, honest local substring filtering, never
  *                   semantic/vector retrieval
+ *  - 'agent'      → the Agents mock dataset (Step 17) — searched by
+ *                   name/description only
  * Do not add a category until a real frontend surface/dataset backs it —
  * this is why Memory (formerly called out here as the example of something
  * NOT yet ready) only became a category once Step 16 actually built it.
@@ -57,7 +59,8 @@ export type SearchResultCategory =
   | 'room'
   | 'device'
   | 'scene'
-  | 'memory';
+  | 'memory'
+  | 'agent';
 
 export interface SearchResult {
   id: string;

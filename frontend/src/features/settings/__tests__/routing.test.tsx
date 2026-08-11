@@ -57,9 +57,15 @@ describe('Settings routing + nav', () => {
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
-  it('the existing /google, /microsoft, /diagnostics, /performance redirects to /settings still work', async () => {
-    renderApp('/diagnostics');
+  it('the existing /google, /microsoft redirects to /settings still work', async () => {
+    renderApp('/google');
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+  });
+
+  it('/diagnostics and /performance no longer redirect to /settings — Diagnostics (Step 20) has its own page', () => {
+    const settings = settingsModules.find((m) => m.path === '/settings');
+    expect(settings?.redirectFrom ?? []).not.toContain('/diagnostics');
+    expect(settings?.redirectFrom ?? []).not.toContain('/performance');
   });
 
   it('the topbar Settings icon button navigates to /settings', async () => {

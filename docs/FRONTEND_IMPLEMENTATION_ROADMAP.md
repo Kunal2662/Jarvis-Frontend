@@ -269,10 +269,27 @@ before implementation) — none was invented; see
 `docs/FRONTEND_PROGRESS.md` Step 19.
 
 ### 20. Diagnostics + Performance UI
-**Status:** 🔴 Placeholder / Core contract dependent ← next
+**Status:** 🟢 Complete (frontend Step 20) — "System status" is honest
+introspection of every other feature's own real service seam via a new
+`DiagnosticsService` seam (`features/diagnostics/diagnosticsService.ts`),
+extending the same `id`/`label`/`ready` fields `AboutSection.tsx` already
+reads to all 18 shipped feature seams, not a curated subset. "Core health"
+is an explicit, permanent unavailable state — `JARVIS_CORE_MILESTONES.md`
+marks the underlying milestone (M13B — Self-Healing & Observability) 🔴 Not
+Started/future, unlike every prior step's milestone, so nothing is
+fabricated there; see `docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md`.
+"Performance" is real, live data read directly from this browser tab's own
+Performance API (page load, DOM ready, TTFB, resource count, JS heap where
+Chromium exposes it) — never from Core, and not part of the adapter seam at
+all, the same way `AboutSection` reads `pkg.version` directly. `/diagnostics`
+is `secondary`/`live` in `app/modules.tsx`, absorbing the old `/diagnostics`
+and `/performance` redirects that previously pointed at Settings (removed
+from Settings' `redirectFrom` now that Diagnostics has its own real page,
+mirroring how Step 17 removed the old `/agents → /chat` redirect). Details
+in `docs/FRONTEND_PROGRESS.md` Step 20.
 
 ### 21. Developer Mode
-**Status:** 🔴 Placeholder / contract dependent
+**Status:** 🔴 Placeholder / contract dependent ← next
 
 ---
 

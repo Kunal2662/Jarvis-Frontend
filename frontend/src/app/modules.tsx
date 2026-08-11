@@ -1,4 +1,5 @@
 import {
+  Activity,
   BookOpen,
   Bot,
   Brain,
@@ -96,6 +97,7 @@ export const modules: ModuleDef[] = [
   { path: '/smart-home', label: 'Smart Home', icon: House, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M12', ready: true },
   { path: '/memory', label: 'Memory', icon: Brain, surface: 'secondary', audience: 'everyone', status: 'live', ready: true },
   { path: '/agents', label: 'Agents', icon: Bot, surface: 'secondary', audience: 'everyone', status: 'live', core: 'M10', ready: true },
+  { path: '/diagnostics', label: 'Diagnostics', icon: Activity, surface: 'secondary', audience: 'everyone', status: 'live', ready: true, redirectFrom: ['/performance'] },
 
   // (Device Management and Home Assistant + MQTT, roadmap items 14-15,
   // stayed sub-routes reached from within Smart Home's own entry points
@@ -107,13 +109,21 @@ export const modules: ModuleDef[] = [
   // other entry here which cites one. Agents (Step 17) reuses Chat/Voice's
   // M10 — see docs/CORE_AGENTS_CONTRACT_REQUIRED.md: it exposes the same
   // AgentOrchestrator, never a second one. The old v1 `/agents → /chat`
-  // redirect was removed now that `/agents` has its own real page.)
+  // redirect was removed now that `/agents` has its own real page.
+  // Diagnostics (Step 20) also omits `core` — it maps to M13B (Self-Healing
+  // & Observability), which JARVIS_CORE_MILESTONES.md marks 🔴 Not
+  // Started/future, so no in-progress Core milestone applies yet; see
+  // docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md. It absorbs the old
+  // `/performance` redirect too — Diagnostics + Performance is one combined
+  // roadmap item (20) and one page.)
 
   // ── Settings (right cluster, not the main strip) ──
   // Step 19: a real page now exists — configures existing systems only
   // (Appearance/ThemeProvider, Voice/AgentService/etc.), never a second
-  // copy of them. See docs/CORE_SETTINGS_CONTRACT_REQUIRED.md.
-  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'live', core: 'System', ready: true, redirectFrom: ['/google', '/microsoft', '/diagnostics', '/performance'] },
+  // copy of them. See docs/CORE_SETTINGS_CONTRACT_REQUIRED.md. The old
+  // `/diagnostics` and `/performance` redirects moved to the new
+  // Diagnostics module (Step 20) now that it has its own real page.
+  { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'live', core: 'System', ready: true, redirectFrom: ['/google', '/microsoft'] },
 
   // ── Developer Mode (hidden by default) ──
   { path: '/design', label: 'Design System', icon: Component, surface: 'developer', audience: 'developer', status: 'live', ready: true },

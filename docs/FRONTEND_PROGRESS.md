@@ -1503,6 +1503,110 @@ owned by JARVIS Core and are pending a verified Core contract (see
 
 ---
 
+## Step 20 — Diagnostics + Performance
+
+**Status: COMPLETE — honest local introspection of every other feature's
+adapter status, plus real browser-Performance-API metrics; Core
+Self-Healing & Observability (M13B) integration pending, and unlike every
+prior step, that milestone has not started at all**
+
+Roadmap item 20 (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, "System")
+was explicitly marked "Placeholder / Core contract dependent." A
+repository search before implementation confirmed
+`docs/JARVIS_CORE_FRONTEND_MAPPING.md`'s own row for Diagnostics reads "M13B/
+future observability | 🔴/future | Do not pretend future Core exists," and
+`docs/JARVIS_CORE_MILESTONES.md` marks M13B — Self-Healing & Observability
+🔴 Not Started / future capability — the only frontend surface in this
+checkpoint whose underlying Core milestone has not started at all (every
+other step's milestone was at least partial/active/"verify"). This changed
+the shape of the step: rather than seeding a plausible-looking fake health
+dashboard (the way, say, `mockAgentAdapter.ts` seeds plausible agent
+roles), the frontend adapter instead introspects data that is **already
+real** — this frontend's own adapter registry — and is explicit and
+permanent about what Core cannot yet provide.
+
+Architecture:
+
+```text
+DiagnosticsPage
+  ↓
+DiagnosticsService (getSystemStatus / getCoreHealth)
+  ↓
+mockDiagnosticsAdapter (introspects every other feature's real service) / coreDiagnosticsAdapter (ready: false)
+
+performanceMetrics.ts — NOT part of the adapter seam; reads the browser's
+own Performance API directly, the same way AboutSection reads pkg.version
+```
+
+Implemented:
+
+- `diagnosticsService.ts` — the `DiagnosticsService` seam:
+  `SystemComponentStatus { key, name, backendId, backendLabel, ready }`
+  and `CoreHealthSnapshot { available, milestone, message }`
+- `adapters/mockDiagnosticsAdapter.ts` — **not fabricated data.** Calls
+  every other shipped feature's own `getXService()` accessor (Home, Chat,
+  Voice, Automations, Knowledge, Intelligence, AI Apps, Notes, Tasks,
+  Calendar, Files, Smart Home, Home Assistant, MQTT, Memory, Agents,
+  Settings, Search — 18 seams) and reports each one's real `id`/`label`/
+  `ready` — the exact same fields `AboutSection.tsx` (Step 19) already
+  surfaces for a curated 9-seam subset, extended here to every seam.
+  `getCoreHealth()` always returns `available: false` with the `M13B`
+  milestone name and an explanation — never an invented CPU/memory/uptime
+  number
+- `adapters/coreDiagnosticsAdapter.ts` — intentionally unimplemented stub
+  (`ready: false`), every method rejects with
+  `CoreDiagnosticsContractUnavailableError`
+- `performanceMetrics.ts` — `getPerformanceSnapshot()`, a plain function
+  (not an adapter) reading `window.performance` directly: page load time,
+  DOM-content-loaded time, time-to-first-byte, resource count, and
+  Chromium's non-standard `performance.memory` (JS heap) where available.
+  Every field the current browser/engine doesn't expose is reported as
+  `undefined` — shown as "Not available" / "Not available in this
+  browser" — never zero-fabricated
+- `DiagnosticsPage.tsx` — `ModulePage` with a local-data disclosure
+  banner, three stat cards (Components / Ready / Awaiting Core), a
+  "System status" card (the 18-seam list, mirrors `AboutSection`'s
+  Card+list+Badge pattern), an explicit "Core health" unavailable card
+  naming M13B and linking to `docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md`,
+  and a "Performance" card with a Refresh button that re-measures live
+  browser metrics on demand
+- Routing: `/diagnostics` wired in `App.tsx`; a new `secondary`/`live`
+  entry added to `app/modules.tsx` with `redirectFrom: ['/performance']`.
+  The pre-existing `/diagnostics` and `/performance` redirects were
+  **removed from Settings'** `redirectFrom` (they previously pointed at
+  `/settings`, a leftover from before either surface had its own real
+  page) — mirrors how Step 17 removed the old `/agents → /chat` redirect
+  once Agents got its own page
+- **Universal Search / Command Palette integration**: no code change was
+  needed — `mockSearchAdapter.ts`'s `searchApp()` and `AppLayout.tsx`'s
+  command list both already read `liveSecondaryModules` unconditionally;
+  registering Diagnostics as `secondary`/`live` was sufficient
+- No Settings file was touched — Diagnostics is reachable only via ⌘K/
+  Universal Search/direct navigation, not a new Settings tab, keeping this
+  step's diff scoped to a net-new feature rather than re-opening Step 19
+- `docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md` added — explicitly notes
+  this is further behind than every other `CORE_*_CONTRACT_REQUIRED.md`
+  doc in this checkpoint, since the underlying Core milestone itself
+  hasn't started
+
+**Known pre-existing item, intentionally not touched:** the Home dashboard
+(`features/home/HomeSections.tsx`'s `SystemWidget`, `features/home/
+adapters/mockHomeAdapter.ts`'s hardcoded `SystemVitals { cpu: 34, memory:
+58, ... }`) predates this checkpoint's later "never fabricate Core data"
+discipline and does show static illustrative CPU/memory numbers. Per
+CLAUDE.md rule 9 ("Preserve working Home… unless the task explicitly
+changes them") this was out of scope for Step 20 and was left as-is — but
+Diagnostics' own Performance card deliberately does not reuse or reconcile
+with those numbers; it sources everything itself, live, from the browser.
+
+**Diagnostics data is entirely local to this browser tab and this
+frontend's own code — nothing here contacts JARVIS Core.** Real Core-side
+self-healing/observability data remains owned by JARVIS Core and is
+pending M13B shipping and a verified Core contract (see
+`docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md`).
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -1693,6 +1797,13 @@ Important implemented areas in this checkpoint include:
 - `features/settings/sections/` (Step 19) — `AppearanceSection.tsx` (reads `useTheme()` directly), `VoiceSection.tsx`, `NotificationsSection.tsx`, `PrivacySection.tsx`, `SmartHomeSection.tsx`, `AiAppsSection.tsx`, `MemorySection.tsx`, `AgentsSection.tsx`, `AutomationsSection.tsx`, `AboutSection.tsx`, `SettingsSummaryCard.tsx` (shared)
 - `features/settings/__tests__/`
 
+### Diagnostics
+
+- `features/diagnostics/DiagnosticsPage.tsx` (Step 20)
+- `features/diagnostics/diagnosticsService.ts`, `performanceMetrics.ts` (Step 20)
+- `features/diagnostics/adapters/mockDiagnosticsAdapter.ts`, `adapters/coreDiagnosticsAdapter.ts` (Step 20)
+- `features/diagnostics/__tests__/`
+
 ### Navigation
 
 - `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
@@ -1703,10 +1814,53 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–19 were green:
+The latest reported frontend gates for the completed Steps 1–20 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **482/482 PASS** across 61 files — all 445 Step 0–17 tests still pass, plus 37 new for Step 19 — Settings:
+- Vitest: **511/511 PASS** across 66 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
+  not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps)
+  — all 482 Step 0–19 tests still pass, plus 29 net new for Step 20 — Diagnostics + Performance:
+  - Diagnostics (28 across 5 new files): `diagnosticsService.test.ts` (new, 7 — mock adapter defaults to
+    `ready: true`, the Core stub is `ready: false` and every method rejects with
+    `CoreDiagnosticsContractUnavailableError`, `getSystemStatus` reports all 18 shipped feature seams with
+    real, non-fabricated `backendId`/`backendLabel`/`ready` — no fixed `'mock'|'core'` union assumed, since
+    Chat's is `'dev'` and Voice's is `'local'` — `getCoreHealth` honestly reports `available: false` for M13B
+    rather than fabricating CPU/memory numbers, and AbortSignal cancellation is respected),
+    `performanceMetrics.test.ts` (new, 4 — `supported: false` with no fabricated values when the Performance
+    API is unavailable, real navigation-timing fields when a navigation entry exists, fields left `undefined`
+    rather than zero-fabricated when no navigation entry exists, and `memory` populated only when the
+    non-standard Chromium `performance.memory` API is present), `DiagnosticsPage.test.tsx` (new, 6 — the
+    local-only banner + stat cards + all 18 system-status rows, the explicit unavailable Core-health card,
+    real performance metrics rendered from a mocked snapshot, the Refresh button re-measuring on click, the
+    honest "Not available"/"Not available in this browser" fallbacks, and the unsupported-Performance-API
+    message), `DiagnosticsPageStates.test.tsx` (new, 5 — loading/empty/error+retry/unavailable/ready),
+    `routing.test.tsx` (new, 6 — live secondary module registration, not a 5th primary nav item, `/diagnostics`
+    renders the real page directly, `/performance` redirects to `/diagnostics`, the old `/diagnostics`/
+    `/performance` redirects to Settings confirmed removed, primary nav/no-sidebar invariant)
+  - `features/settings/__tests__/routing.test.tsx` (net +1, 8 total): the `/google`/`/microsoft` redirects to
+    `/settings` still work (split out from the old combined test now that `/diagnostics`/`/performance` no
+    longer redirect there); a new test asserts those two paths were actually removed from Settings'
+    `redirectFrom`
+  - No Settings feature file (`sections/`, `SettingsPage.tsx`, `settingsService.ts`) was modified — Diagnostics
+    is a standalone secondary module, not a new Settings tab, so Step 19's test suite otherwise needed no
+    changes beyond the routing split above
+  - A genuine architectural distinction was made before writing any code (mirrors the Step 19/Agents/Memory
+    pattern of scoping before implementing): every prior step's underlying Core milestone was at least
+    partial/active/"verify," so a plausible fictional mock dataset was defensible (e.g. `mockAgentAdapter.ts`'s
+    named agent roles). Diagnostics' milestone (M13B) has **not started at all**
+    (`JARVIS_CORE_MILESTONES.md`), so `getSystemStatus` instead introspects this frontend's own, already-real
+    adapter registry rather than inventing a dataset, and `getCoreHealth` is a permanent, honest "unavailable"
+    response, not a stub awaiting future mock data — see `docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md`.
+  - Browser QA (manual, live dev server): `/diagnostics` renders all 18 real component rows, the Core Health
+    card, and live Performance metrics (page load/DOM ready/TTFB/resource count/JS heap) sourced from the
+    actual `Performance` API in that browser tab; `/performance` redirects to `/diagnostics`; the Refresh
+    button re-measures without console errors; Settings/Agents/Memory/Device Management pages all still render
+    correctly; Universal Search finds "Go to Diagnostics" (plus one legitimate secondary match — the seeded
+    "System Health Agent" — honestly, not suppressed); no horizontal overflow at a 375px mobile width; dark
+    mode renders without errors. Pixel-level screenshot comparison was not performed in this environment (the
+    browser pane was not compositing frames this session) — verification was DOM/content/interaction-based
+    against the live running app instead.
+  - Was 482/482 across 61 files for the completed Steps 1–19:
   - Settings (35 across 6 files): `settingsService.test.ts` (new, 7 — mock adapter defaults to `ready: true`
     and persists to `localStorage`, the Core stub is `ready: false` and every method rejects with
     `CoreSettingsContractUnavailableError`, `getSettings` returns documented defaults when nothing is
@@ -1882,8 +2036,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 19 | Memory frontend | 🟢 Complete (in-memory mock adapter, read-only recall + forget only, no semantic/vector search; Core memory integration pending) |
 | 20 | Agents frontend | 🟢 Complete (in-memory mock adapter, observability + enable/disable only — no execution/run action, per "no second agent framework"; Core AgentOrchestrator integration pending) |
 | 21 | Settings frontend | 🟢 Complete (one real `SettingsService`-backed preference — `notificationsEnabled`; every other tab reads an existing feature's own service directly; Core settings integration pending) |
-| 22 | Diagnostics + Performance UI | 🔴 Placeholder / contract dependent ← next |
-| 23 | Developer Mode | 🔴 Placeholder / contract dependent |
+| 22 | Diagnostics + Performance UI | 🟢 Complete (honest local introspection of every other feature's own adapter status via a new `DiagnosticsService` seam, extended to all 18 shipped seams; real live browser-Performance-API metrics, not part of the adapter seam; Core health is an explicit permanent "unavailable" state since the underlying milestone, M13B, has not started — Core Self-Healing & Observability integration pending) |
+| 23 | Developer Mode | 🔴 Placeholder / contract dependent ← next |
 | 24 | Unified JARVIS Command Center / cross-surface UX | 🔴 Not Started |
 | 25 | Final JARVIS visual/interaction polish | 🔴 Pending |
 | 26 | Responsive + accessibility completion | 🟡 Partial / pending final QA |
@@ -1915,6 +2069,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Memory → real memory formation, semantic/vector recall, and retention/expiry policy (frontend currently ships an in-memory mock adapter only — read-only recall list + forget, no create/edit-content, no semantic search — see `docs/CORE_MEMORY_CONTRACT_REQUIRED.md`)
 - Agents → the real Core AgentOrchestrator this surface observes (frontend currently ships an in-memory mock adapter only — agent-role status + activity history + a local enable/disable toggle, no run/execute action, no real permission enforcement — see `docs/CORE_AGENTS_CONTRACT_REQUIRED.md`)
 - Settings → real cross-device preference sync and any Core-controlled data-retention policy (frontend currently ships a `localStorage`-only mock adapter for its one owned preference, `notificationsEnabled`; every other tab reads an existing feature's own service — see `docs/CORE_SETTINGS_CONTRACT_REQUIRED.md`)
+- Diagnostics → real Core-reported system health, self-healing events, and any Core-side view of per-subsystem status (frontend currently ships an adapter that honestly introspects its OWN local feature-adapter registry and an explicit permanent "unavailable" Core-health response — no Core self-healing/observability engine exists to integrate with yet, since JARVIS Core has not started M13B; see `docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md`). Performance metrics are real, live, browser-sourced data with no Core dependency at all — nothing pending there.
 
 These should not be implemented as fake backend systems in React.
 
@@ -1957,6 +2112,7 @@ Do not redo:
 - Memory foundation (`MemoryService` seam, the read-only recall list + detail + forget UI at `/memory` — do not add a create/edit-content method here; a memory represents something JARVIS itself formed, never user-authored in this frontend)
 - Agents foundation (`AgentService` seam, the `/agents` card grid + detail + enable/disable UI — do not add a run/execute method here, and do not build a second `AgentOrchestrator`/planner/tool-executor in React; this surface only observes and toggles the SAME orchestrator that powers Chat/Voice)
 - Settings foundation (`SettingsService` seam, `SettingsProvider`, the `/settings` 10-tab UI — do not add settings for things that already have a real control elsewhere; Appearance stays owned by `ThemeProvider`, never a second theme engine; Voice/Smart Home/AI Apps/Memory/Agents/Automations tabs stay read-only summaries + links into their own real pages, never a duplicate catalog or a second connect/execute/CRUD surface)
+- Diagnostics foundation (`DiagnosticsService` seam, the `/diagnostics` system-status + Core-health + performance UI — do not fabricate Core health data; `getSystemStatus` must keep introspecting other features' own real service seams rather than inventing its own dataset, and `getCoreHealth` must stay an honest "unavailable" response until a real Core M13B contract exists; do not build a second health/monitoring/logging engine; `performanceMetrics.ts`'s browser-Performance-API reads stay outside the adapter seam, since they have no Core equivalent)
 - the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations/Memory/Agents stay secondary/command-palette surfaces, Settings stays the top-bar right-cluster surface — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
@@ -1974,10 +2130,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–19.
+8. Do not redo Steps 0–20.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Diagnostics + Performance UI** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 20 — the next unstarted item after Step 19 Settings completed item 19. Item 21 "Developer Mode" is the remaining Phase 8 item after that; both are explicitly contract-dependent placeholders per the roadmap).
+11. Continue from **Developer Mode** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 21 — the next unstarted item after Step 20 Diagnostics + Performance completed item 20. It is an explicitly contract-dependent placeholder per the roadmap).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -1990,9 +2146,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 19 — Settings (one real `SettingsService`-backed preference — `notificationsEnabled`, persisted to `localStorage`; every other tab — Appearance, Voice, Privacy, Smart Home, AI Apps, Memory, Agents, Automations, About — reads an existing feature's own service directly and links to that feature's real page; Core settings/preferences integration pending). This completes roadmap Phase 8 item 19.
+**LAST COMPLETED FRONTEND STEP:** Step 20 — Diagnostics + Performance (`/diagnostics`, a new `DiagnosticsService` seam — `diagnosticsService.ts`. `getSystemStatus` honestly introspects every other shipped feature's own real service seam — 18 in total — rather than fabricating Core health data; `getCoreHealth` always reports `available: false`, since the underlying Core milestone, M13B — Self-Healing & Observability, has not started at all — the only frontend surface in this checkpoint whose Core milestone is this far behind. Performance metrics are real, live data read directly from the browser's own Performance API, deliberately outside the adapter seam since they have no Core equivalent. `/diagnostics` absorbed the old `/diagnostics` and `/performance` redirects that previously pointed at Settings; Core Self-Healing & Observability integration pending). This completes roadmap Phase 8 item 20.
 
-**NEXT FRONTEND STEP:** Diagnostics + Performance UI (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 20 — the next unstarted item now that item 19 Settings is complete. Explicitly marked "contract dependent" on the roadmap; no Core contract documented — verify before implementing.)
+**NEXT FRONTEND STEP:** Developer Mode (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 21 — the next unstarted item now that item 20 Diagnostics + Performance is complete. Explicitly marked "contract dependent" on the roadmap; no Core contract documented — verify before implementing.)
 
 **CURRENT PRODUCT STATE:**
 

@@ -21,6 +21,7 @@ import {
   StatusItem,
   TopBar,
   TopNav,
+  useAsync,
   useHotkey,
   useToast,
   VoiceOrb,
@@ -29,8 +30,10 @@ import {
   type TopNavItem,
 } from '../design-system';
 import { comingSoonModules, developerModules, liveSecondaryModules, settingsModules, topBarModules } from './modules';
+import { buildSceneControlGroup, buildSearchGroup } from './commandCenter';
 import { VoiceOverlay } from '../features/voice/VoiceOverlay';
 import { UniversalSearch } from '../features/search/UniversalSearch';
+import { getSmartHomeService, type Scene } from '../features/smartHome/smartHomeService';
 import { useSettings } from '../features/settings/SettingsProvider';
 
 export function AppLayout() {
@@ -44,6 +47,13 @@ export function AppLayout() {
   const [clock, setClock] = useState(() => new Date());
   const { toast } = useToast();
   const { settings } = useSettings();
+
+  // Global Command Center (roadmap item 22) — the same SmartHomeService seam
+  // SmartHomePage.tsx itself uses (Step 13), never a second Smart Home
+  // engine. Scenes are fetched once at the app root, mirroring how
+  // SettingsProvider fetches settings once — not re-fetched per route.
+  const smartHomeService = useMemo(() => getSmartHomeService(), []);
+  const scenesAsync = useAsync<Scene[]>((signal) => smartHomeService.getScenes(signal));
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 30_000);
@@ -72,6 +82,30 @@ export function AppLayout() {
   const selectModule = (path: string, action?: 'voice') =>
     action === 'voice' ? setVoiceOpen(true) : navigate(path);
 
+  // Command Center "Control" commands trigger the SAME SmartHomeService
+  // method (and mirror the same toast copy) SmartHomePage.tsx's own scene
+  // cards use — never a parallel execution path, and never a claim that a
+  // real device changed when only the local mock did.
+  const handleTriggerScene = async (scene: Scene) => {
+    try {
+      const changed = await smartHomeService.triggerScene(scene.id);
+      toast({
+        title: changed.length > 0 ? `${scene.name} activated` : `${scene.name} triggered`,
+        description:
+          changed.length > 0
+            ? `${changed.length} device${changed.length === 1 ? '' : 's'} updated.`
+            : 'No devices were affected — every targeted device is offline or unavailable.',
+        variant: changed.length > 0 ? 'success' : 'info',
+      });
+    } catch (err) {
+      toast({
+        title: 'Could not trigger scene',
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'danger',
+      });
+    }
+  };
+
   // Flat top-bar navigation — one level, overflow scrolls (never a dropdown).
   const navItems: TopNavItem[] = topBarModules.map((m) => ({
     id: m.path.replace(/\W+/g, '') || 'home',
@@ -82,8 +116,9 @@ export function AppLayout() {
     onSelect: () => selectModule(m.path, m.action),
   }));
 
-  const commandGroups: CommandGroup[] = useMemo(
-    () => [
+  const commandGroups: CommandGroup[] = useMemo(() => {
+    const controlGroup = buildSceneControlGroup(scenesAsync.data ?? [], handleTriggerScene);
+    return [
       {
         // Primary nav + real secondary pages (e.g. Knowledge, Intelligence) —
         // everything here is a live, built surface today. Developer-only
@@ -106,6 +141,15 @@ export function AppLayout() {
           onSelect: () => selectModule(m.path, m.action),
         })),
       },
+      // Global Command Center (roadmap item 22): a bridge into the existing
+      // Universal Search overlay — never a second search index — plus, when
+      // available, real Smart Home scene commands via the same
+      // SmartHomeService seam SmartHomePage.tsx itself uses. `controlGroup`
+      // is `null` (silently omitted, never a fake/broken-looking group)
+      // when there are no scenes to offer, e.g. a Core adapter that hasn't
+      // loaded/is unavailable.
+      buildSearchGroup(() => setSearchOpen(true)),
+      ...(controlGroup ? [controlGroup] : []),
       {
         // Future surfaces — Core contract not yet wired to the frontend.
         // Clearly marked so nothing here looks production-ready.
@@ -136,10 +180,9 @@ export function AppLayout() {
           },
         ],
       },
-    ],
+    ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigate, location.pathname, settings.developerModeEnabled],
-  );
+  }, [navigate, location.pathname, settings.developerModeEnabled, scenesAsync.data]);
 
   // Gated by Settings → Notifications (`notificationsEnabled`, see
   // SettingsProvider) — a real, verifiable setting: turning it off empties

@@ -314,16 +314,36 @@ is documented anywhere in this checkpoint — none was invented; see
 ## Phase 9 — Unified JARVIS Experience
 
 ### 22. Global Command Center
-**Status:** 🔴 Not Started ← next
-
-Make Chat, Voice, Search, Productivity, Smart Home and Integrations behave as one assistant experience.
+**Status:** 🟢 Complete (frontend Step 22) — an orchestration/discovery
+layer over the pre-existing Command Palette (`⌘K`), not a new page, second
+search index, or second execution engine. Two new command groups compose
+capabilities that already existed: **Search** — a single bridge item
+("Search everything…") that opens the real Universal Search overlay
+(`⌘⇧K`, Step 9) — no second search index, no duplicated category adapters;
+and **Control** — one command per Smart Home scene (Good Night, Movie Time,
+Away Mode), calling the exact same `SmartHomeService.triggerScene()` seam
+`SmartHomePage.tsx` itself uses (Step 13), with the same toast copy — never
+a parallel execution path, and honestly omitted (not faked) when no scenes
+are available. The pre-existing "Go to"/"Coming soon"/"Actions" groups, and
+Step 21's Developer Mode gate on `developerModules`, are untouched. New
+pure builder functions live in `app/commandCenter.ts`
+(`buildSearchGroup`/`buildSceneControlGroup`), composed into
+`AppLayout.tsx`'s existing `commandGroups`. No Core contract was required —
+this step only recombines the already-documented Search and Smart Home
+seams; see `docs/CORE_SEARCH_CONTRACT_REQUIRED.md` and
+`docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`. Deliberately **not** built: a
+new `/command-center` route (would duplicate Home/Search/Palette), per-
+device commands (stay on Smart Home/Device Management, which have the
+context to show device state), and any Automations "run now" command (no
+such method exists on `AutomationService` — would have required inventing
+one). Details in `docs/FRONTEND_PROGRESS.md` Step 22.
 
 ---
 
 ## Phase 10 — Visual Experience
 
 ### 23. JARVIS Visual Identity
-**Status:** 🟡 Partial
+**Status:** 🟡 Partial ← next
 
 Existing design system, orb, waveform and visual language exist. Add final startup/interaction polish without rebuilding the design system.
 

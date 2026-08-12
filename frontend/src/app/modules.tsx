@@ -126,6 +126,13 @@ export const modules: ModuleDef[] = [
   { path: '/settings', label: 'Settings', icon: Settings, surface: 'settings', audience: 'everyone', status: 'live', core: 'System', ready: true, redirectFrom: ['/google', '/microsoft'] },
 
   // ── Developer Mode (hidden by default) ──
+  // Step 21: this route always resolved (direct URL entry was never
+  // blocked), but it is only *discoverable* — surfaced in the Command
+  // Palette's "Go to" group — once Settings → Developer → "Developer Mode"
+  // is turned on. See `settings.developerModeEnabled`
+  // (features/settings/settingsService.ts), `DeveloperSection.tsx`, and
+  // `AppLayout.tsx`'s `commandGroups`, which reads `developerModules` below
+  // (previously defined but unused before this step).
   { path: '/design', label: 'Design System', icon: Component, surface: 'developer', audience: 'developer', status: 'live', ready: true },
 ];
 

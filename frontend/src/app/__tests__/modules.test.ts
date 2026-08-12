@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { comingSoonModules, liveSecondaryModules, modules, secondaryModules, topBarModules } from '../modules';
+import {
+  comingSoonModules,
+  developerModules,
+  liveSecondaryModules,
+  modules,
+  secondaryModules,
+  settingsModules,
+  topBarModules,
+} from '../modules';
 
 /**
  * These invariants enforce the single-workspace navigation architecture AND the
@@ -79,6 +87,16 @@ describe('module registry invariants', () => {
         expect(seen.has(from), `redirect "${from}" declared more than once`).toBe(false);
         seen.add(from);
       }
+    }
+  });
+
+  it('developer-audience modules stay out of the topbar/secondary/settings surfaces — only reachable via Developer Mode (Step 21)', () => {
+    for (const m of developerModules) {
+      expect(m.audience, `${m.label} is a developer module and must have audience 'developer'`).toBe('developer');
+    }
+    const developerPaths = new Set(developerModules.map((m) => m.path));
+    for (const m of [...topBarModules, ...secondaryModules, ...settingsModules]) {
+      expect(developerPaths.has(m.path), `${m.path} must not also appear as a non-developer surface`).toBe(false);
     }
   });
 

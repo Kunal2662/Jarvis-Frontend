@@ -28,11 +28,23 @@
 export interface AppSettings {
   /** Gates AppLayout's NotificationCenter bell + unread badge. */
   notificationsEnabled: boolean;
+  /**
+   * Gates whether `audience: 'developer'` surfaces (currently just the
+   * Design System page, `/design`) appear in the Command Palette's "Go to"
+   * group — see AppLayout.tsx's `commandGroups` and `app/modules.tsx`'s
+   * `developerModules` selector, which existed but was unused before Step
+   * 21. A real, verifiable effect (mirrors `notificationsEnabled`), never a
+   * fake toggle: `/design` was always reachable by direct URL either way —
+   * this only controls *discoverability* — and this flag never changes
+   * what JARVIS Core does or bypasses any permission/execution boundary.
+   */
+  developerModeEnabled: boolean;
 }
 
 /** The documented, restorable defaults — what `resetSettings()` returns to. */
 export const DEFAULT_SETTINGS: AppSettings = {
   notificationsEnabled: true,
+  developerModeEnabled: false,
 };
 
 /**

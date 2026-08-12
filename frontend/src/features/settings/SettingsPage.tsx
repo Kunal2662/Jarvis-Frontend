@@ -26,6 +26,7 @@ import { MemorySection } from './sections/MemorySection';
 import { AgentsSection } from './sections/AgentsSection';
 import { AutomationsSection } from './sections/AutomationsSection';
 import { AboutSection } from './sections/AboutSection';
+import { DeveloperSection } from './sections/DeveloperSection';
 
 const TABS = [
   { value: 'appearance', label: 'Appearance' },
@@ -38,6 +39,7 @@ const TABS = [
   { value: 'agents', label: 'Agents' },
   { value: 'automations', label: 'Automations' },
   { value: 'about', label: 'About' },
+  { value: 'developer', label: 'Developer' },
 ] as const;
 
 /**
@@ -134,6 +136,9 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="about">
               <AboutSection />
+            </TabsContent>
+            <TabsContent value="developer">
+              <DeveloperSection />
             </TabsContent>
           </Tabs>
         </div>

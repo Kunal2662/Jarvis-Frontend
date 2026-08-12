@@ -158,11 +158,33 @@ describe('SettingsPage', () => {
     expect(within(status).getAllByText('Ready').length).toBeGreaterThan(0);
   });
 
+  it('Developer tab toggles Developer Mode and reveals the system registry + Design System link', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('settings-tab-developer'));
+    // Settings is still loading for the first ~250ms (mock adapter
+    // latency) — wait for the real toggle rather than the loading spinner
+    // (see DeveloperSection.tsx), matching how the Notifications tests do
+    // this (`await screen.findByTestId('settings-notifications-toggle')`).
+    const toggle = await screen.findByTestId('settings-developer-mode-toggle');
+
+    expect(screen.getByTestId('settings-developer-disabled-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('settings-developer-design-system')).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    await waitFor(() =>
+      expect(screen.getByTestId('settings-developer-mode-toggle')).toHaveAttribute('data-state', 'checked'),
+    );
+
+    expect(await screen.findByTestId('settings-developer-diagnostics-summary')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-developer-design-system')).toBeInTheDocument();
+  });
+
   it('never displays a raw secret/credential anywhere on the page across every tab', async () => {
     renderPage();
     const user = userEvent.setup();
     for (const tab of [
-      'appearance', 'voice', 'notifications', 'privacy', 'smart-home', 'ai-apps', 'memory', 'agents', 'automations', 'about',
+      'appearance', 'voice', 'notifications', 'privacy', 'smart-home', 'ai-apps', 'memory', 'agents', 'automations', 'about', 'developer',
     ]) {
       await user.click(screen.getByTestId(`settings-tab-${tab}`));
       await screen.findByTestId(`settings-${tab}`);

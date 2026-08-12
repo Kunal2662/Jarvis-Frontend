@@ -42,14 +42,37 @@ describe('settings service seam', () => {
     expect(fetched.notificationsEnabled).toBe(false);
   });
 
+  it('updateSettings round-trips developerModeEnabled independently of notificationsEnabled', async () => {
+    const { mockSettingsService } = await import('../adapters/mockSettingsAdapter');
+    const updated = await mockSettingsService.updateSettings({ developerModeEnabled: true });
+    expect(updated.developerModeEnabled).toBe(true);
+    expect(updated.notificationsEnabled).toBe(true);
+
+    const fetched = await mockSettingsService.getSettings();
+    expect(fetched.developerModeEnabled).toBe(true);
+  });
+
   it('resetSettings restores the documented defaults', async () => {
     const { mockSettingsService } = await import('../adapters/mockSettingsAdapter');
     const { DEFAULT_SETTINGS } = await import('../settingsService');
-    await mockSettingsService.updateSettings({ notificationsEnabled: false });
+    await mockSettingsService.updateSettings({ notificationsEnabled: false, developerModeEnabled: true });
 
     const reset = await mockSettingsService.resetSettings();
     expect(reset).toEqual(DEFAULT_SETTINGS);
+    expect(reset.developerModeEnabled).toBe(false);
     expect(await mockSettingsService.getSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('persists developerModeEnabled as a plain boolean in the same jarvis.settings key — no new storage key, nothing sensitive', async () => {
+    const { mockSettingsService } = await import('../adapters/mockSettingsAdapter');
+    await mockSettingsService.updateSettings({ developerModeEnabled: true });
+
+    expect(localStorage.length).toBe(1);
+    const raw = localStorage.getItem('jarvis.settings');
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw as string);
+    expect(Object.keys(parsed).sort()).toEqual(['developerModeEnabled', 'notificationsEnabled']);
+    expect(parsed.developerModeEnabled).toBe(true);
   });
 
   it('survives corrupted localStorage content by falling back to defaults', async () => {

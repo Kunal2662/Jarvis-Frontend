@@ -1607,6 +1607,98 @@ pending M13B shipping and a verified Core contract (see
 
 ---
 
+## Step 21 — Developer Mode
+
+**Status: COMPLETE — a presentation/control layer over capabilities that
+already existed; one new real `SettingsService`-backed preference
+(`developerModeEnabled`) with a genuine Command Palette effect; no Core
+contract required for what was built**
+
+Roadmap item 21 (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, "System")
+was explicitly marked "Placeholder / contract dependent." A repository
+search before implementation found `docs/JARVIS_CORE_FRONTEND_MAPPING.md`'s
+own row for Developer Mode reads "Cross-cutting | ⚠️ Verify | Expose real
+diagnostics/events only" — the single sentence that scoped this entire
+step: Developer Mode does not create a second orchestration/permission/
+execution system, does not invent a Core or MCP endpoint, and does not
+touch real hardware. It only exposes real, already-built local frontend
+capabilities more prominently.
+
+The search also turned up scaffolding that had existed, unused, since
+Step 2: `app/modules.tsx` already declared an `Audience` type with a
+`'developer'` value, a `surface: 'developer'` module (`/design`, the
+Design System showcase page — `audience: 'developer'`, commented "hidden
+by default"), a `developerModules` selector, and even a `commandModules
+(devMode: boolean)` helper — but nothing anywhere in the app ever called
+`commandModules` or read `developerModules`, and `AppLayout.tsx`'s Command
+Palette "Go to" group was hard-coded to `[...topBarModules,
+...liveSecondaryModules, ...settingsModules]`. `/design` was fully
+reachable by direct URL, just never discoverable through any UI. This
+step's job was to actually wire up that dormant scaffolding with a real
+toggle, not invent a new one.
+
+Architecture:
+
+```text
+Settings → Developer tab
+  ↓
+developerModeEnabled (SettingsService, additive to the Step 19 seam)
+  ↓
+AppLayout.tsx's commandGroups ("Go to") — conditionally includes
+app/modules.tsx's developerModules (currently just /design)
+```
+
+Implemented:
+
+- `settingsService.ts` — `AppSettings` gains `developerModeEnabled:
+  boolean` (default `false`), documented the same way
+  `notificationsEnabled` is. No adapter code changes were needed —
+  `mockSettingsAdapter.ts`'s generic `{ ...DEFAULT_SETTINGS, ...patch }`
+  merge already handles any new field additively, and
+  `coreSettingsAdapter.ts`'s stub methods are field-agnostic
+- `sections/DeveloperSection.tsx` (new) — the Settings → Developer tab.
+  The toggle itself mirrors `NotificationsSection.tsx` exactly (spinner
+  while loading/saving, success/error toast). When on, shows a "System
+  registry" `SettingsSummaryCard` (component/ready counts) that reads the
+  Step 20 `DiagnosticsService.getSystemStatus()` — real, already-computed
+  data — and links to `/diagnostics`, and a "Design System" card
+  confirming it's "Now in ⌘K" with a link to `/design`. When off, shows a
+  short explanatory hint instead. An explicit disclosure line states the
+  toggle "never changes what JARVIS Core does, never bypasses a permission
+  check, and never talks to real hardware"
+- `SettingsPage.tsx` — added an 11th "Developer" tab (trailing, after
+  About)
+- `AppLayout.tsx` — the Command Palette's "Go to" `items` array now
+  conditionally spreads `developerModules` when
+  `settings.developerModeEnabled` is true, and tags each developer item
+  with a `hint: 'dev'` (mirroring how "Coming soon" items get `hint:
+  'soon'`). `commandGroups`'s `useMemo` dependency array gained
+  `settings.developerModeEnabled` so the list actually recomputes when the
+  setting changes — verified live (see tests below), not just a toggle
+  with no observable effect
+- `app/modules.tsx` — comment-only update on the `/design` entry
+  documenting that it is now genuinely gated by Developer Mode rather than
+  permanently hidden
+- **No Universal Search change.** Per this step's own scope note ("only
+  modify Universal Search if Step 21 genuinely requires Developer Mode to
+  be searchable"), and since `mockSearchAdapter.ts`'s `searchApp()`
+  intentionally mirrors the Command Palette's "Go to" set
+  (`topBarModules`/`liveSecondaryModules`/`settingsModules`, never
+  `developerModules`), Universal Search was left untouched
+- `docs/CORE_DEVELOPER_MODE_CONTRACT_REQUIRED.md` added — states plainly
+  that no Core contract was required for what this step built (it's a
+  local discoverability toggle over already-real frontend state), and
+  documents what a *future*, deeper Core-connected Developer Mode (real
+  event/log streaming, real feature-flag control, real Core health
+  internals) would need — none of which was invented or assumed
+
+**Developer Mode is entirely local to this browser tab.** Toggling it
+never contacts JARVIS Core, never changes what any other feature does, and
+never exposes a credential, secret, or raw hardware control. It only
+changes what's discoverable in the Command Palette in this browser tab.
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -1795,6 +1887,7 @@ Important implemented areas in this checkpoint include:
 - `features/settings/settingsService.ts` (Step 19)
 - `features/settings/adapters/mockSettingsAdapter.ts`, `adapters/coreSettingsAdapter.ts` (Step 19)
 - `features/settings/sections/` (Step 19) — `AppearanceSection.tsx` (reads `useTheme()` directly), `VoiceSection.tsx`, `NotificationsSection.tsx`, `PrivacySection.tsx`, `SmartHomeSection.tsx`, `AiAppsSection.tsx`, `MemorySection.tsx`, `AgentsSection.tsx`, `AutomationsSection.tsx`, `AboutSection.tsx`, `SettingsSummaryCard.tsx` (shared)
+- `features/settings/sections/DeveloperSection.tsx` (Step 21) — reads `developerModeEnabled` via `useSettings()` and the Step 20 `DiagnosticsService` seam
 - `features/settings/__tests__/`
 
 ### Diagnostics
@@ -1806,20 +1899,57 @@ Important implemented areas in this checkpoint include:
 
 ### Navigation
 
-- `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10)
-- `app/AppLayout.tsx`
+- `app/modules.tsx` (`liveSecondaryModules` / `comingSoonModules` selectors added in Step 10; `developerModules` wired up for the first time in Step 21 — it existed, unused, since Step 2)
+- `app/AppLayout.tsx` (Step 21: Command Palette "Go to" group gated on `settings.developerModeEnabled`)
 - `design-system/patterns/TopNav/`
 
 ---
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–20 were green:
+The latest reported frontend gates for the completed Steps 1–21 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **511/511 PASS** across 66 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
+- Vitest: **523/523 PASS** across 68 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
   not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps)
-  — all 482 Step 0–19 tests still pass, plus 29 net new for Step 20 — Diagnostics + Performance:
+  — all 511 Step 0–20 tests still pass, plus 12 net new for Step 21 — Developer Mode:
+  - Developer Mode (12 across 2 new files + 4 modified files): `DeveloperSectionStates.test.tsx` (new, 5 —
+    loading spinner while settings load, the disabled hint with no registry/Design-System cards while
+    Developer Mode is off, a saving spinner then success toast once the toggle resolves, an error toast that
+    keeps the control usable when the update rejects, and the system-registry summary + Design System card
+    appearing once Developer Mode is on), `AppLayoutDeveloperMode.test.tsx` (new, 3 — a real end-to-end check
+    that the Design System page is genuinely absent from ⌘K by default and appears only after enabling
+    Developer Mode from Settings, that `/design` stays reachable by direct navigation regardless of the
+    toggle — discoverability only, never a route block — and that turning Developer Mode back off hides it
+    from ⌘K again), `settingsService.test.ts` (+2, 9 total — `developerModeEnabled` round-trips independently
+    of `notificationsEnabled`, and persists as a plain boolean in the same `jarvis.settings` `localStorage`
+    key with no new storage key and nothing sensitive), `SettingsPage.test.tsx` (+1, 14 total — the Developer
+    tab toggles Developer Mode and reveals the system-registry summary + Design System link; the existing
+    "never displays a raw secret" sweep extended to cover the new tab), `NotificationsSectionStates.test.tsx`
+    (unchanged test count — its fake `AppSettings` literals updated for the new required field, no behavior
+    change), `app/__tests__/modules.test.ts` (+1 — developer-audience modules stay out of the
+    topbar/secondary/settings surfaces and are only reachable via Developer Mode)
+  - A genuine architectural finding, not invented: `app/modules.tsx` had declared an `Audience` type with a
+    `'developer'` value, a `surface: 'developer'` `/design` module, a `developerModules` selector, and even a
+    `commandModules(devMode: boolean)` helper since Step 2 — but nothing anywhere in the app ever read
+    `developerModules` or called `commandModules`, and `AppLayout.tsx`'s Command Palette was hard-coded to a
+    static list. This step wired up that dormant scaffolding with a real toggle rather than building a new
+    mechanism.
+  - Browser QA (manual, live dev server): confirmed end-to-end in the actual running app — the Design System
+    page was absent from ⌘K by default; toggling Developer Mode on in Settings → Developer showed a real
+    toast ("Developer Mode enabled"), a "System registry" card reporting the true `18 Components / 18 Ready`
+    (matching `/diagnostics`), and a "Design System — Now in ⌘K" card; opening the Command Palette (Ctrl+K)
+    and filtering to "Design System" showed exactly one match tagged `dev`, and selecting it navigated to a
+    fully-rendered `/design` page with no console errors. `/diagnostics`, `/settings`, and `/` (Home) were
+    re-verified to still render correctly and unchanged (regression). Only pre-existing, environment-level
+    Vite HMR WebSocket console errors were observed (unrelated to this step, present before any interaction).
+    The reverse (toggling back off hides `/design` from ⌘K again) was verified via the automated
+    `AppLayoutDeveloperMode.test.tsx` end-to-end test rather than re-confirmed manually a second time in this
+    session, after the browser automation tool's element-ref clicks became intermittently unresponsive on a
+    fresh page load (a tool/environment quirk — the identical click sequence had just succeeded moments
+    earlier for the "on" path); pixel-level screenshot comparison was not performed (the browser pane was not
+    compositing frames this session, consistent with Step 20's browser QA note).
+  - Was 511/511 across 66 files for the completed Steps 1–20:
   - Diagnostics (28 across 5 new files): `diagnosticsService.test.ts` (new, 7 — mock adapter defaults to
     `ready: true`, the Core stub is `ready: false` and every method rejects with
     `CoreDiagnosticsContractUnavailableError`, `getSystemStatus` reports all 18 shipped feature seams with
@@ -2037,8 +2167,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 20 | Agents frontend | 🟢 Complete (in-memory mock adapter, observability + enable/disable only — no execution/run action, per "no second agent framework"; Core AgentOrchestrator integration pending) |
 | 21 | Settings frontend | 🟢 Complete (one real `SettingsService`-backed preference — `notificationsEnabled`; every other tab reads an existing feature's own service directly; Core settings integration pending) |
 | 22 | Diagnostics + Performance UI | 🟢 Complete (honest local introspection of every other feature's own adapter status via a new `DiagnosticsService` seam, extended to all 18 shipped seams; real live browser-Performance-API metrics, not part of the adapter seam; Core health is an explicit permanent "unavailable" state since the underlying milestone, M13B, has not started — Core Self-Healing & Observability integration pending) |
-| 23 | Developer Mode | 🔴 Placeholder / contract dependent ← next |
-| 24 | Unified JARVIS Command Center / cross-surface UX | 🔴 Not Started |
+| 23 | Developer Mode | 🟢 Complete (one new real `SettingsService`-backed preference, `developerModeEnabled`; a genuine Command Palette discoverability gate over the pre-existing, previously-unused `developerModules` selector and `/design` page; a Settings → Developer tab summarizing the Step 20 `DiagnosticsService` registry rather than duplicating it; no second orchestration/permission/execution system, no invented Core/MCP endpoint — no Core contract required for what was built) |
+| 24 | Unified JARVIS Command Center / cross-surface UX | 🔴 Not Started ← next |
 | 25 | Final JARVIS visual/interaction polish | 🔴 Pending |
 | 26 | Responsive + accessibility completion | 🟡 Partial / pending final QA |
 | 27 | Performance engineering | 🔴 Not Started |
@@ -2070,6 +2200,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Agents → the real Core AgentOrchestrator this surface observes (frontend currently ships an in-memory mock adapter only — agent-role status + activity history + a local enable/disable toggle, no run/execute action, no real permission enforcement — see `docs/CORE_AGENTS_CONTRACT_REQUIRED.md`)
 - Settings → real cross-device preference sync and any Core-controlled data-retention policy (frontend currently ships a `localStorage`-only mock adapter for its one owned preference, `notificationsEnabled`; every other tab reads an existing feature's own service — see `docs/CORE_SETTINGS_CONTRACT_REQUIRED.md`)
 - Diagnostics → real Core-reported system health, self-healing events, and any Core-side view of per-subsystem status (frontend currently ships an adapter that honestly introspects its OWN local feature-adapter registry and an explicit permanent "unavailable" Core-health response — no Core self-healing/observability engine exists to integrate with yet, since JARVIS Core has not started M13B; see `docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md`). Performance metrics are real, live, browser-sourced data with no Core dependency at all — nothing pending there.
+- Developer Mode → none required for what was built (a local Command Palette discoverability toggle over already-real frontend state). A *future*, deeper Core-connected Developer Mode would need real Core event/log streaming, real feature-flag control, and real Core health internals — none of which exists or was invented; see `docs/CORE_DEVELOPER_MODE_CONTRACT_REQUIRED.md`.
 
 These should not be implemented as fake backend systems in React.
 
@@ -2113,6 +2244,7 @@ Do not redo:
 - Agents foundation (`AgentService` seam, the `/agents` card grid + detail + enable/disable UI — do not add a run/execute method here, and do not build a second `AgentOrchestrator`/planner/tool-executor in React; this surface only observes and toggles the SAME orchestrator that powers Chat/Voice)
 - Settings foundation (`SettingsService` seam, `SettingsProvider`, the `/settings` 10-tab UI — do not add settings for things that already have a real control elsewhere; Appearance stays owned by `ThemeProvider`, never a second theme engine; Voice/Smart Home/AI Apps/Memory/Agents/Automations tabs stay read-only summaries + links into their own real pages, never a duplicate catalog or a second connect/execute/CRUD surface)
 - Diagnostics foundation (`DiagnosticsService` seam, the `/diagnostics` system-status + Core-health + performance UI — do not fabricate Core health data; `getSystemStatus` must keep introspecting other features' own real service seams rather than inventing its own dataset, and `getCoreHealth` must stay an honest "unavailable" response until a real Core M13B contract exists; do not build a second health/monitoring/logging engine; `performanceMetrics.ts`'s browser-Performance-API reads stay outside the adapter seam, since they have no Core equivalent)
+- Developer Mode foundation (`developerModeEnabled` on the `SettingsService` seam, `DeveloperSection.tsx`, `AppLayout.tsx`'s Command Palette gate over `app/modules.tsx`'s `developerModules` — do not build a second orchestration/permission/execution system, do not invent a Core/MCP endpoint, do not gate real hardware or bypass a real permission check through this toggle; the "System registry" card must keep reading the existing `DiagnosticsService` rather than re-deriving its own copy)
 - the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations/Memory/Agents stay secondary/command-palette surfaces, Settings stays the top-bar right-cluster surface — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
@@ -2130,10 +2262,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–20.
+8. Do not redo Steps 0–21.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Developer Mode** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 21 — the next unstarted item after Step 20 Diagnostics + Performance completed item 20. It is an explicitly contract-dependent placeholder per the roadmap).
+11. Continue from the **Global Command Center** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 9, item 22 — the next unstarted item after Step 21 Developer Mode completed item 21. This begins a new phase — re-read the architecture docs and verify scope before implementing).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -2146,9 +2278,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 20 — Diagnostics + Performance (`/diagnostics`, a new `DiagnosticsService` seam — `diagnosticsService.ts`. `getSystemStatus` honestly introspects every other shipped feature's own real service seam — 18 in total — rather than fabricating Core health data; `getCoreHealth` always reports `available: false`, since the underlying Core milestone, M13B — Self-Healing & Observability, has not started at all — the only frontend surface in this checkpoint whose Core milestone is this far behind. Performance metrics are real, live data read directly from the browser's own Performance API, deliberately outside the adapter seam since they have no Core equivalent. `/diagnostics` absorbed the old `/diagnostics` and `/performance` redirects that previously pointed at Settings; Core Self-Healing & Observability integration pending). This completes roadmap Phase 8 item 20.
+**LAST COMPLETED FRONTEND STEP:** Step 21 — Developer Mode. A presentation/control layer over capabilities that already existed, per `docs/JARVIS_CORE_FRONTEND_MAPPING.md`'s own row for Developer Mode ("Expose real diagnostics/events only") — no second orchestration/permission/execution system, no invented Core/MCP endpoint, no real hardware access. Owns exactly one new real, `SettingsService`-backed preference — `developerModeEnabled`, additive to the Step 19 seam — with a genuine, verifiable effect: when on, `AppLayout.tsx`'s Command Palette "Go to" group includes `app/modules.tsx`'s `developerModules` (currently just the pre-existing Design System page, `/design`), a selector that existed, unused, since Step 2. `/design` was always reachable by direct URL either way; the toggle only controls *discoverability*. A new Settings → Developer tab hosts the toggle plus a "System registry" summary card that reads the Step 20 `DiagnosticsService` seam and links to `/diagnostics`. No Core contract was required for what was built — see `docs/CORE_DEVELOPER_MODE_CONTRACT_REQUIRED.md`. This completes roadmap Phase 8 item 21 — Phase 8 ("System") is now fully complete (Settings, Diagnostics + Performance, Developer Mode).
 
-**NEXT FRONTEND STEP:** Developer Mode (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 8, item 21 — the next unstarted item now that item 20 Diagnostics + Performance is complete. Explicitly marked "contract dependent" on the roadmap; no Core contract documented — verify before implementing.)
+**NEXT FRONTEND STEP:** Global Command Center (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 9, item 22 — the next unstarted item now that item 21 Developer Mode is complete. This begins a new phase — "Make Chat, Voice, Search, Productivity, Smart Home and Integrations behave as one assistant experience" — verify scope before implementing.)
 
 **CURRENT PRODUCT STATE:**
 
@@ -2173,11 +2305,13 @@ A new Emergent workspace/account or coding agent should:
 - Home Assistant + MQTT: complete as a connector status/configuration/diagnostics frontend surface at `/smart-home/integrations`, using in-memory mock adapters (one per connector) behind a new `ConnectorService` seam — no real handshake, no credential ever stored/displayed, synced entities are a preview never promoted into the live Smart Home device list (Core Home Assistant/MQTT connector integration pending)
 - Memory: complete as a read-only recall list + detail + forget frontend surface at `/memory`, using an in-memory mock adapter behind a new `MemoryService` seam — no create/edit-content UI (a memory is never user-authored here), no semantic/vector search, no localStorage use (Core memory integration pending)
 - Agents: complete as an observability + local enable/disable frontend surface at `/agents`, using an in-memory mock adapter behind a new `AgentService` seam — no run/execute action, no agent creation/configuration UI (every "agent" is a fictional named role the single, existing AgentOrchestrator could adopt, not an independent service); the old v1 `/agents → /chat` redirect was removed now that `/agents` has its own real page (Core AgentOrchestrator integration pending)
-- Settings: complete as a 10-tab configuration frontend surface at `/settings`, using a `localStorage`-backed mock adapter behind a new `SettingsService` seam for the one preference it actually owns (`notificationsEnabled`, which genuinely gates `AppLayout`'s notification bell/badge) — Appearance stays owned by the existing `ThemeProvider`, every other tab (Voice/Privacy/Smart Home/AI Apps/Memory/Agents/Automations/About) is a read-only summary over that feature's own existing service with a link to its real page; the pre-existing `/settings` module entry flipped from `planned` to `live` (Core settings/preferences integration pending)
+- Settings: complete as an 11-tab configuration frontend surface at `/settings`, using a `localStorage`-backed mock adapter behind a `SettingsService` seam for the preferences it actually owns (`notificationsEnabled`, `developerModeEnabled`) — Appearance stays owned by the existing `ThemeProvider`; Voice/Privacy/Smart Home/AI Apps/Memory/Agents/Automations/About are read-only summaries over each feature's own existing service with a link to its real page; Developer (Step 21) hosts the `developerModeEnabled` toggle plus a summary linking into Diagnostics; the pre-existing `/settings` module entry flipped from `planned` to `live` (Core settings/preferences integration pending)
+- Diagnostics + Performance: complete as a `/diagnostics` frontend surface using a `DiagnosticsService` seam that honestly introspects every other feature's own real adapter status (never fabricated) plus real, live browser-Performance-API metrics (Core Self-Healing & Observability, M13B, integration pending — M13B has not started at all, unlike every other step's underlying milestone)
+- Developer Mode: complete as a Settings → Developer tab + a real Command Palette discoverability gate at `/design`, using one new `SettingsService`-backed preference (`developerModeEnabled`) — no second orchestration/permission/execution system, no invented Core/MCP endpoint, no Core contract required for what was built
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START DIAGNOSTICS + PERFORMANCE UI automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START THE GLOBAL COMMAND CENTER automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

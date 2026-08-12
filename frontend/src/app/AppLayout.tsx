@@ -28,7 +28,7 @@ import {
   type NotificationGroup,
   type TopNavItem,
 } from '../design-system';
-import { comingSoonModules, liveSecondaryModules, settingsModules, topBarModules } from './modules';
+import { comingSoonModules, developerModules, liveSecondaryModules, settingsModules, topBarModules } from './modules';
 import { VoiceOverlay } from '../features/voice/VoiceOverlay';
 import { UniversalSearch } from '../features/search/UniversalSearch';
 import { useSettings } from '../features/settings/SettingsProvider';
@@ -86,12 +86,23 @@ export function AppLayout() {
     () => [
       {
         // Primary nav + real secondary pages (e.g. Knowledge, Intelligence) —
-        // everything here is a live, built surface today.
+        // everything here is a live, built surface today. Developer-only
+        // surfaces (currently just the Design System page, `/design`) only
+        // join this list when Settings → Developer → "Developer Mode" is on
+        // (see `settings.developerModeEnabled`, DeveloperSection.tsx) — a
+        // real gate, not decorative: `developerModules` existed unused in
+        // `app/modules.tsx` since Step 2 until this step wired it up.
         heading: 'Go to',
-        items: [...topBarModules, ...liveSecondaryModules, ...settingsModules].map((m) => ({
+        items: [
+          ...topBarModules,
+          ...liveSecondaryModules,
+          ...settingsModules,
+          ...(settings.developerModeEnabled ? developerModules : []),
+        ].map((m) => ({
           id: m.path,
           label: m.label,
           icon: <m.icon />,
+          hint: m.audience === 'developer' ? 'dev' : undefined,
           onSelect: () => selectModule(m.path, m.action),
         })),
       },
@@ -127,7 +138,7 @@ export function AppLayout() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigate, location.pathname],
+    [navigate, location.pathname, settings.developerModeEnabled],
   );
 
   // Gated by Settings → Notifications (`notificationsEnabled`, see

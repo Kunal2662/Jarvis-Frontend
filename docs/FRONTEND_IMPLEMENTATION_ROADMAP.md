@@ -289,14 +289,32 @@ mirroring how Step 17 removed the old `/agents → /chat` redirect). Details
 in `docs/FRONTEND_PROGRESS.md` Step 20.
 
 ### 21. Developer Mode
-**Status:** 🔴 Placeholder / contract dependent ← next
+**Status:** 🟢 Complete (frontend Step 21) — a presentation/control layer
+over capabilities that already exist, per
+`docs/JARVIS_CORE_FRONTEND_MAPPING.md`'s own row for Developer Mode
+("Expose real diagnostics/events only"). Owns exactly one new real,
+`SettingsService`-backed preference — `developerModeEnabled` — additive to
+the Step 19 seam, following the same pattern `notificationsEnabled`
+established. A real, verifiable effect (not a fake toggle): when on,
+`AppLayout.tsx`'s Command Palette "Go to" group includes `app/modules.tsx`'s
+`developerModules` (currently just the pre-existing Design System page,
+`/design`) — a selector that existed, unused, since Step 2. `/design` was
+always reachable by direct URL regardless of the toggle; this only controls
+*discoverability*. A new Settings → Developer tab hosts the toggle plus a
+"System registry" summary card that reads the Step 20 `DiagnosticsService`
+seam and links to `/diagnostics`, rather than re-deriving that data. No
+second orchestration/permission/execution system, no invented Core/MCP
+endpoint, no real hardware access. No verified Core Developer Mode contract
+is documented anywhere in this checkpoint — none was invented; see
+`docs/CORE_DEVELOPER_MODE_CONTRACT_REQUIRED.md`. Details in
+`docs/FRONTEND_PROGRESS.md` Step 21.
 
 ---
 
 ## Phase 9 — Unified JARVIS Experience
 
 ### 22. Global Command Center
-**Status:** 🔴 Not Started
+**Status:** 🔴 Not Started ← next
 
 Make Chat, Voice, Search, Productivity, Smart Home and Integrations behave as one assistant experience.
 

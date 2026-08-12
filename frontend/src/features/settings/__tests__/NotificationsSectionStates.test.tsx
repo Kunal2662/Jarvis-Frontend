@@ -35,7 +35,7 @@ function renderSection() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  fakeSettings = { notificationsEnabled: true };
+  fakeSettings = { notificationsEnabled: true, developerModeEnabled: false };
   fakeLoading = false;
 });
 
@@ -56,7 +56,7 @@ describe('NotificationsSection async states', () => {
     await user.click(screen.getByTestId('settings-notifications-toggle'));
     expect(screen.getByTestId('settings-notifications-spinner')).toBeInTheDocument();
 
-    resolveUpdate!({ notificationsEnabled: false });
+    resolveUpdate!({ notificationsEnabled: false, developerModeEnabled: false });
     await waitFor(() => expect(screen.getByTestId('settings-notifications-toggle')).toBeInTheDocument());
     expect(screen.getByText('Notifications disabled')).toBeInTheDocument();
   });

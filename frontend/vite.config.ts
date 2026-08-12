@@ -2,7 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
-// JARVIS dev server is supervised on port 3000 behind the Emergent https proxy.
+// JARVIS dev server is supervised on port 3000 behind the Emergent https proxy
+// by default. Honors PORT when set (e.g. by local preview tooling assigning a
+// free port) so it doesn't collide with another instance on 3000.
+const PORT = Number(process.env.PORT) || 3000;
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -12,7 +16,7 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 3000,
+    port: PORT,
     strictPort: true,
     allowedHosts: true,
     hmr: {
@@ -22,7 +26,7 @@ export default defineConfig({
   },
   preview: {
     host: true,
-    port: 3000,
+    port: PORT,
     strictPort: true,
     allowedHosts: true,
   },

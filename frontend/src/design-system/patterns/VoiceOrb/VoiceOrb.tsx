@@ -14,7 +14,14 @@ export interface VoiceOrbProps {
   premium?: boolean;
 }
 
-const stateColor: Record<VoiceState, string> = {
+/**
+ * Single source of truth for "what color is JARVIS's presence in this
+ * state" — reused by `Waveform` (Step 23) so the ambient waves flanking the
+ * orb always match its own color exactly, rather than maintaining a second,
+ * potentially-drifting palette.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export const stateColor: Record<VoiceState, string> = {
   idle: 'var(--ai-aura)',
   listening: 'var(--ai-listening)',
   thinking: 'var(--ai-thinking)',

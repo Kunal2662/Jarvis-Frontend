@@ -1796,6 +1796,112 @@ omitted — never a fake or broken-looking group.
 
 ---
 
+## Step 23 — JARVIS Visual Identity
+
+**Status: COMPLETE — a visual-system consistency pass, not a feature
+milestone. One genuine incompleteness found and fixed (the ambient waves
+never reacted to the orb's state); every other audited area (logo
+clear-space, glow discipline, popup centering/geometry, typography,
+spacing) was already consistent and needed no code change**
+
+Roadmap item 23 (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 10, "Visual
+Experience") read "Add final startup/interaction polish without rebuilding
+the design system." Per this step's own instructions, the frontend was
+audited *before* any code was touched, against ten explicit,
+previously-stated acceptance requirements (logo clear-space, no glowing
+separator lines, keep logo/text/orb glow, avoid excessive glow, popup
+geometry, popup centering, avoid visual congestion) plus the general
+typography/spacing/color/interaction/animation language sections. A live
+user report during this session ("the waves are also incomplete — I want
+animated waves that react with the orb") pointed directly at a real,
+confirmed defect; the rest of the audit is documented below as
+**verification**, not as a list of fixes.
+
+**Audit findings (verification only — no code changed for these):**
+
+- **Logo clear-space**: the JARVIS brand mark exists in exactly one place
+  app-wide — `AppLayout.tsx`'s top-bar `leading` slot — inside 16px
+  container padding with its own internal gap. No instance of the logo
+  touching a line, border, card edge, or viewport edge was found.
+- **Glowing decorative lines**: an exhaustive search (every `shadow-glow*`
+  usage, every gradient `via-`/`from-transparent` pattern, every CSS file)
+  found zero instances of a glowing separator/edge line anywhere in the
+  current codebase. `shadow-glow-sm` is used in exactly three deliberate
+  places — the logo mark, the `ai`-variant Toast, and the `ai`-variant
+  Button's hover state — never on a divider, border, or full-width line.
+- **Popup/modal centering + geometry**: `Modal`, `CommandPalette`, and
+  `SearchOverlay` are all already centered
+  (`left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`) with consistent
+  rounded-2xl geometry, `p-6`/consistent internal spacing, and
+  title/description typography — the Step 17 "center Search overlay and
+  Command Palette instead of top-anchoring" fix already covers this.
+  Drawers remain drawers (`Drawer.tsx`, side-anchored, never converted to
+  a centered modal).
+- **Typography**: every audited page already uses the design system's
+  token scale (`text-h1`…`text-caption`/`text-overline`) consistently.
+  Exactly three arbitrary `text-[...]` values exist app-wide, all
+  deliberate and justified: relative `0.85em` sizing for inline Markdown
+  code spans, one `18px` glyph in the QuickSettings trigger, and two
+  `10px` compact mobile tab labels below the smallest named token. No
+  systemic inconsistency found.
+- **Spacing/color/interaction states**: consistently sourced from the
+  shared `design-system` primitives/tokens across every page audited
+  (Home, Chat, Voice, Automations, Smart Home, Device Management, Home
+  Assistant/MQTT, Memory, Agents, Knowledge, Intelligence, Calendar,
+  Files, Settings, Diagnostics, Developer Mode, Global Command Center,
+  Universal Search) — no parallel spacing/color system found.
+
+**The real fix — Orb + Waveform reactivity:**
+
+- `Waveform` (`features/home/Waveform.tsx`) took only a boolean `active`
+  and always animated with a fixed cyan color and fully random per-bar
+  jitter — completely disconnected from which `VoiceState` the orb next to
+  it was actually in. Whether JARVIS was idle, listening, thinking, or
+  speaking, the waves looked and moved identically. Separately,
+  `VoiceOverlay.tsx` — the *real* voice interaction surface — showed the
+  orb completely alone, with no waves at all, an inconsistency with the
+  Home hero's decorative treatment of the same orb.
+- **Relocated** `Waveform` from `features/home/` into
+  `design-system/patterns/Waveform/Waveform.tsx`, alongside `VoiceOrb`
+  (its natural pairing), and exported it from the design-system barrel —
+  it's now a shared cross-feature primitive, not a Home-only one. No other
+  file referenced the old path (confirmed before moving).
+- **Exported `VoiceOrb`'s existing `stateColor` map** (was a private local
+  const) as the single source of truth for "what color is JARVIS's
+  presence in this state" — `Waveform` reuses it exactly rather than
+  maintaining a second, potentially-drifting palette.
+- **Rewrote `Waveform`** to accept the real `state: VoiceState` instead of
+  a collapsed boolean: bars now render in `stateColor[state]` (matching
+  the orb exactly) with per-state amplitude/speed (`idle`: slow, subtle;
+  `listening`: brighter, quicker; `thinking`: measured, purple;
+  `speaking`: fastest, most energetic; `offline`: static, dimmed) — real
+  reactive character, not a single generic ambient loop. Offline bars are
+  also visibly dimmer (`opacity: 0.2`).
+- **`HeroOrb.tsx`** (Home page) now passes the real `state` straight
+  through instead of collapsing it to a boolean first. Its status-dot
+  indicator was also switched from a hardcoded aura-cyan/disabled-gray
+  choice to `stateColor[state]`, so the dot, the orb, and the waves all
+  agree on color for every state — not just idle/offline.
+- **`VoiceOverlay.tsx`** now flanks the real orb with the same reactive
+  `Waveform`, reusing its already-computed live `state` — no new state or
+  logic, purely visual — closing the cross-surface gap between Home's
+  decorative hero and the actual voice interaction surface. Hidden below
+  `md` viewports, matching Home's existing anti-congestion responsive
+  choice.
+- **No functional behavior changed.** Voice recognition, transcript
+  handling, send-to-Jarvis, and every existing testid are untouched; the
+  waves are `aria-hidden` and purely decorative, exactly as before.
+
+**Deliberately not done:** no new Admin interface (explicitly out of
+scope for this step — only the visual-language foundation that a future
+Admin surface could reuse, which is already satisfied by everything above
+being centralized in `design-system/`, not duplicated per-surface); no
+rewrite of any existing page; no new design tokens/spacing scale; no
+change to Modal/CommandPalette/SearchOverlay/Drawer (already correct); no
+change to any feature's mock data or service seam.
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -1842,11 +1948,13 @@ Important implemented areas in this checkpoint include:
 - `ModulePage`
 - `Widget` / `WidgetGrid`
 - `useAsync`
+- `patterns/VoiceOrb/VoiceOrb.tsx` — exports `stateColor` (Step 23) as the single source of truth for per-`VoiceState` color
+- `patterns/Waveform/Waveform.tsx` (Step 23) — relocated here from `features/home/`; reacts to the real `VoiceState` (color via `stateColor`, plus per-state amplitude/speed) instead of a boolean
 
 ### Home
 
 - `features/home/HomeSections.tsx`
-- `features/home/HeroOrb.tsx`
+- `features/home/HeroOrb.tsx` (Step 23: passes real `VoiceState` to `Waveform`/the status dot instead of a collapsed boolean)
 - `features/home/ActivityTimeline.tsx`
 - `features/home/homeService.ts`
 - `features/home/adapters/mockHomeAdapter.ts`
@@ -1862,7 +1970,7 @@ Important implemented areas in this checkpoint include:
 
 ### Voice
 
-- `features/voice/VoiceOverlay.tsx`
+- `features/voice/VoiceOverlay.tsx` (Step 23: now flanks the orb with the shared reactive `Waveform`, reusing its own already-computed live `state`)
 - `features/voice/useVoiceSession.ts`
 - `features/voice/voiceService.ts`
 - `features/voice/voiceHistory.ts`
@@ -2005,12 +2113,45 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–22 were green:
+The latest reported frontend gates for the completed Steps 1–23 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **536/536 PASS** across 70 files, deterministic (`npm test -- --run --no-file-parallelism`, run alone —
+- Vitest: **549/549 PASS** across 72 files, deterministic (`npm test -- --run --no-file-parallelism`, run alone —
   not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps)
-  — all 523 Step 0–21 tests still pass, plus 13 net new for Step 22 — Global Command Center:
+  — all 536 Step 0–22 tests still pass, plus 13 net new for Step 23 — JARVIS Visual Identity:
+  - JARVIS Visual Identity (13 across 2 new files): `design-system/__tests__/Waveform.test.tsx` (new, 11 —
+    renders the requested bar count, every one of the 6 `VoiceState`s colors every bar with the exact same
+    `stateColor` `VoiceOrb` itself uses, `offline` visibly dims bar opacity while every other state does not,
+    `mirror` reverses layout via `flexDirection`, the whole waveform is `aria-hidden` (purely decorative), and
+    it defaults to `idle` when no state is given), `features/voice/__tests__/VoiceOverlay.test.tsx` (new, 2 —
+    first-ever coverage for this previously-untested surface: the dialog renders its two new flanking wave
+    containers with real bars when open, and renders nothing when closed)
+  - Lint: one pre-existing `react-refresh/only-export-components` warning surfaced on `VoiceOrb.tsx` after
+    exporting `stateColor` alongside the `VoiceOrb` component — resolved with the same inline
+    `eslint-disable-next-line` convention already used elsewhere in this codebase for an identical situation
+    (e.g. `Button.tsx`'s exported `buttonVariants`), rather than splitting `stateColor` into its own file
+  - A genuine architectural decision was made before writing any code, not a bug found after the fact:
+    `Waveform` was relocated from `features/home/` into `design-system/patterns/Waveform/`, alongside
+    `VoiceOrb` (its natural pairing) — it's a shared, cross-feature presentational primitive (used by both
+    Home and Voice), not a Home-only one. No other file referenced the old path (confirmed via search before
+    moving); zero pre-existing tests referenced `HeroOrb`, `Waveform`, or `VoiceOverlay` by name, so this
+    step also represents this codebase's first-ever coverage of `VoiceOverlay`'s rendered output.
+  - Browser QA (manual, live dev server): confirmed end-to-end — Home's hero orb, its status dot, and both
+    flanking `Waveform` containers (28 bars each) all render `var(--ai-aura)` (the idle color) in agreement;
+    the same confirmed on the real `/voice` overlay after this step added the waves there (28 bars each,
+    same idle color, no console errors — mic access is blocked in this sandboxed browser, so the session
+    honestly stays in its unsupported/`idle`-adjacent state rather than reaching `listening`). `/diagnostics`
+    and `/settings` (all 11 tabs, including Developer) were re-verified to still render correctly and
+    unchanged (regression), with no console errors beyond pre-existing, environment-level Vite HMR WebSocket
+    noise. **Not performed this session**: interactively cycling the orb through listening/thinking/speaking/
+    processing/offline in the live browser, and re-opening the Command Palette live, because this session's
+    Browser pane reported `document.visibilityState: "hidden"` throughout (the same "browser pane was not
+    compositing frames" limitation noted in Step 20's own QA) — click/keyboard dispatch to that hidden tab
+    was unreliable even after repeated retries and a forced navigation. The per-state color/motion logic this
+    would have visually spot-checked is instead directly and exhaustively covered by the 11 new
+    `Waveform.test.tsx` cases (one per `VoiceState`, asserting the exact rendered color), and Command
+    Palette/Global Command Center behavior is unchanged code already covered by Step 22's own passing tests.
+  - Was 536/536 across 70 files for the completed Steps 1–22:
   - Global Command Center (13 across 2 new files): `commandCenter.test.ts` (new, 5 — `buildSearchGroup` always
     returns one "Search" item that calls the given `onOpenSearch` callback exactly once, `buildSceneControlGroup`
     returns `null` for an empty scene list rather than an empty/broken-looking group, returns one command per
@@ -2301,8 +2442,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 22 | Diagnostics + Performance UI | 🟢 Complete (honest local introspection of every other feature's own adapter status via a new `DiagnosticsService` seam, extended to all 18 shipped seams; real live browser-Performance-API metrics, not part of the adapter seam; Core health is an explicit permanent "unavailable" state since the underlying milestone, M13B, has not started — Core Self-Healing & Observability integration pending) |
 | 23 | Developer Mode | 🟢 Complete (one new real `SettingsService`-backed preference, `developerModeEnabled`; a genuine Command Palette discoverability gate over the pre-existing, previously-unused `developerModules` selector and `/design` page; a Settings → Developer tab summarizing the Step 20 `DiagnosticsService` registry rather than duplicating it; no second orchestration/permission/execution system, no invented Core/MCP endpoint — no Core contract required for what was built) |
 | 24 | Unified JARVIS Command Center / cross-surface UX | 🟢 Complete (an orchestration/discovery layer over the pre-existing Command Palette — two new command groups, `app/commandCenter.ts`'s `buildSearchGroup`/`buildSceneControlGroup`, composing the existing Universal Search overlay and `SmartHomeService.triggerScene()`; no new page, no second search index, no second execution engine; no Core contract required) |
-| 25 | Final JARVIS visual/interaction polish | 🔴 Pending ← next |
-| 26 | Responsive + accessibility completion | 🟡 Partial / pending final QA |
+| 25 | Final JARVIS visual/interaction polish | 🟢 Complete (a visual-system consistency audit — logo clear-space, glow discipline, popup centering/geometry, typography, spacing — found everything already consistent except one real defect: `Waveform`, relocated into `design-system/patterns/Waveform/` alongside `VoiceOrb`, now reacts to the orb's real `VoiceState` via the newly-exported `stateColor` map; `VoiceOverlay.tsx` now flanks the real orb with the same reactive waves; no feature behavior changed) |
+| 26 | Responsive + accessibility completion | 🟡 Partial / pending final QA ← next |
 | 27 | Performance engineering | 🔴 Not Started |
 | 28 | Final frontend QA/release validation | 🔴 Not Started |
 
@@ -2334,6 +2475,7 @@ The following are intentionally pending real JARVIS Core contracts:
 - Diagnostics → real Core-reported system health, self-healing events, and any Core-side view of per-subsystem status (frontend currently ships an adapter that honestly introspects its OWN local feature-adapter registry and an explicit permanent "unavailable" Core-health response — no Core self-healing/observability engine exists to integrate with yet, since JARVIS Core has not started M13B; see `docs/CORE_DIAGNOSTICS_CONTRACT_REQUIRED.md`). Performance metrics are real, live, browser-sourced data with no Core dependency at all — nothing pending there.
 - Developer Mode → none required for what was built (a local Command Palette discoverability toggle over already-real frontend state). A *future*, deeper Core-connected Developer Mode would need real Core event/log streaming, real feature-flag control, and real Core health internals — none of which exists or was invented; see `docs/CORE_DEVELOPER_MODE_CONTRACT_REQUIRED.md`.
 - Global Command Center → none required for what was built. It only recombines the already-documented Search (`docs/CORE_SEARCH_CONTRACT_REQUIRED.md`) and Smart Home (`docs/CORE_SMART_HOME_CONTRACT_REQUIRED.md`) seams' existing Core dependencies — no new one was introduced.
+- JARVIS Visual Identity → none required, and none possible — this step touched only presentation (colors, motion, layout) against local `VoiceState`, never a backend seam or mock adapter.
 
 These should not be implemented as fake backend systems in React.
 
@@ -2379,6 +2521,7 @@ Do not redo:
 - Diagnostics foundation (`DiagnosticsService` seam, the `/diagnostics` system-status + Core-health + performance UI — do not fabricate Core health data; `getSystemStatus` must keep introspecting other features' own real service seams rather than inventing its own dataset, and `getCoreHealth` must stay an honest "unavailable" response until a real Core M13B contract exists; do not build a second health/monitoring/logging engine; `performanceMetrics.ts`'s browser-Performance-API reads stay outside the adapter seam, since they have no Core equivalent)
 - Developer Mode foundation (`developerModeEnabled` on the `SettingsService` seam, `DeveloperSection.tsx`, `AppLayout.tsx`'s Command Palette gate over `app/modules.tsx`'s `developerModules` — do not build a second orchestration/permission/execution system, do not invent a Core/MCP endpoint, do not gate real hardware or bypass a real permission check through this toggle; the "System registry" card must keep reading the existing `DiagnosticsService` rather than re-deriving its own copy)
 - Global Command Center foundation (`app/commandCenter.ts`'s `buildSearchGroup`/`buildSceneControlGroup`, composed into `AppLayout.tsx`'s existing `commandGroups` — do not build a second search index, a second Smart Home execution path, a new `/command-center` page, or an execute/run-now command for Automations or Agents; "Control" commands stay limited to the finite, pre-curated Smart Home scene set, never per-device commands)
+- Visual Identity foundation (`design-system/patterns/VoiceOrb/VoiceOrb.tsx`'s exported `stateColor` map, `design-system/patterns/Waveform/Waveform.tsx` — do not reintroduce a second/local color palette per state, do not fork Waveform back into a feature folder, do not add a glowing decorative line/border anywhere, keep Modal/CommandPalette/SearchOverlay centered exactly as the Step 17 fix established, do not build a separate Admin visual language)
 - the Home/Chat/Voice/Automations primary nav (Search stays a cross-cutting overlay; Knowledge/Intelligence/AI Apps/Notes/Tasks/Calendar/Files/Smart Home/Device Management/Integrations/Memory/Agents stay secondary/command-palette surfaces, Settings stays the top-bar right-cluster surface — none of these are a 5th nav item)
 
 Inspect existing code before making structural changes.
@@ -2396,10 +2539,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–22.
+8. Do not redo Steps 0–23.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **JARVIS Visual Identity** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 10, item 23 — the next unstarted item after Step 22 Global Command Center completed item 22. "Add final startup/interaction polish without rebuilding the design system" — re-read the architecture docs and verify scope before implementing).
+11. Continue from **Responsive + Accessibility** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 10, item 24 — the next unstarted item after Step 23 JARVIS Visual Identity completed item 23. "Complete desktop/tablet/mobile, keyboard, focus, semantics and reduced-motion coverage" — re-read the architecture docs and verify scope before implementing).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -2412,9 +2555,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 22 — Global Command Center. An orchestration/discovery layer over the pre-existing Command Palette (`⌘K`) — not a new page, second search index, or second execution engine. Two new command groups, composed via new pure builder functions in `app/commandCenter.ts`: **Search** (a single "Search everything…" bridge item into the real Universal Search overlay, `⌘⇧K`, Step 9) and **Control** (one command per Smart Home scene — Good Night, Movie Time, Away Mode — calling the exact same `SmartHomeService.triggerScene()` seam `SmartHomePage.tsx` itself uses, Step 13, with the same toast copy; honestly omitted, not faked, when no scenes are available). The pre-existing "Go to"/"Coming soon"/"Actions" groups and Step 21's Developer Mode gate are byte-for-byte unchanged. Automations and Agents were deliberately NOT given a "Control" command — `AutomationService` has no execute/run-now method and `AgentService` has no run/execute method by design (Step 17, "no second agent framework") — adding either would have meant inventing a capability. No Core contract was required — this step only recombines the already-documented Search and Smart Home seams. This completes roadmap Phase 9 item 22 — Phase 9 ("Unified JARVIS Experience") is now fully complete.
+**LAST COMPLETED FRONTEND STEP:** Step 23 — JARVIS Visual Identity. A visual-system consistency pass, not a feature milestone or design-system rebuild. Audited logo clear-space, glow discipline, popup/modal centering + geometry, typography, and spacing across every shipped surface — all already consistent (Modal/CommandPalette/SearchOverlay centering was already fixed in Step 17; no glowing decorative line exists anywhere in the codebase; typography already consistently uses the design-system token scale) — no code change was needed for any of that. The one genuine defect, confirmed by a live user report during this session ("the waves are also incomplete — I want animated waves that react with the orb"): `Waveform` (relocated from `features/home/` into `design-system/patterns/Waveform/`, alongside `VoiceOrb`) took only a boolean and always animated with a fixed color and fully random motion, completely disconnected from the orb's actual `VoiceState`; `VoiceOverlay.tsx` (the real voice interaction surface) showed the orb with no waves at all. Both now share `VoiceOrb`'s newly-exported `stateColor` map and react with real per-state amplitude/speed (calm at idle, brighter/quicker while listening, measured purple while thinking, fastest while speaking, dimmed and static while offline). No feature behavior, mock data, or service seam changed. This completes roadmap Phase 10 item 23.
 
-**NEXT FRONTEND STEP:** JARVIS Visual Identity (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 10, item 23 — the next unstarted item now that item 22 Global Command Center is complete. "Add final startup/interaction polish without rebuilding the design system" — verify scope before implementing.)
+**NEXT FRONTEND STEP:** Responsive + Accessibility (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 10, item 24 — the next unstarted item now that item 23 JARVIS Visual Identity is complete. "Complete desktop/tablet/mobile, keyboard, focus, semantics and reduced-motion coverage" — verify scope before implementing.)
 
 **CURRENT PRODUCT STATE:**
 
@@ -2443,10 +2586,11 @@ A new Emergent workspace/account or coding agent should:
 - Diagnostics + Performance: complete as a `/diagnostics` frontend surface using a `DiagnosticsService` seam that honestly introspects every other feature's own real adapter status (never fabricated) plus real, live browser-Performance-API metrics (Core Self-Healing & Observability, M13B, integration pending — M13B has not started at all, unlike every other step's underlying milestone)
 - Developer Mode: complete as a Settings → Developer tab + a real Command Palette discoverability gate at `/design`, using one new `SettingsService`-backed preference (`developerModeEnabled`) — no second orchestration/permission/execution system, no invented Core/MCP endpoint, no Core contract required for what was built
 - Global Command Center: complete as two new Command Palette (`⌘K`) groups — "Search" (bridges to the existing Universal Search overlay) and "Control" (triggers the existing Smart Home scene set via `SmartHomeService.triggerScene()`) — composed via `app/commandCenter.ts`; no new page, no second search index, no second execution engine, no Core contract required for what was built
+- JARVIS Visual Identity: complete as a consistency audit (logo/glow/popup-centering/typography/spacing all already correct) plus one real fix — `Waveform` (now in `design-system/patterns/Waveform/`) reacts to `VoiceOrb`'s real `stateColor`-mapped state with per-state amplitude/speed, shared by both the Home hero and the real Voice overlay; no Core contract required, no feature behavior changed
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START JARVIS VISUAL IDENTITY automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START RESPONSIVE + ACCESSIBILITY automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

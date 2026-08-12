@@ -4,6 +4,7 @@ import { MicOff, Send, X } from 'lucide-react';
 import {
   Button,
   VoiceOrb,
+  Waveform,
   type VoiceState,
 } from '../../design-system';
 import { useVoiceSession } from './useVoiceSession';
@@ -74,7 +75,11 @@ export function VoiceOverlay({ open, onOpenChange }: VoiceOverlayProps) {
             <X className="size-5" />
           </DialogPrimitive.Close>
 
-          <VoiceOrb state={state} size={200} />
+          <div className="flex w-full max-w-2xl items-center justify-center gap-4 px-6">
+            <Waveform className="hidden flex-1 justify-end md:flex" state={state} mirror />
+            <VoiceOrb state={state} size={200} className="shrink-0" />
+            <Waveform className="hidden flex-1 md:flex" state={state} />
+          </div>
 
           <div className="flex min-h-[3rem] max-w-2xl flex-col items-center px-6 text-center">
             {!supported ? (

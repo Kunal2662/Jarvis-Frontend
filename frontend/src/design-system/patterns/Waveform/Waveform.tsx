@@ -44,7 +44,11 @@ export function Waveform({ bars = 28, state = 'idle', mirror = false, className 
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 3,
+        // Bars span the full container width edge-to-edge — from the
+        // viewport-following outer edge continuously up to the orb, never a
+        // small cluster huddled at one end with a dead gap on the other.
+        width: '100%',
+        justifyContent: 'space-between',
         flexDirection: mirror ? 'row-reverse' : 'row',
       }}
     >

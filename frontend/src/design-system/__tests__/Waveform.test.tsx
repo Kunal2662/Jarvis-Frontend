@@ -54,4 +54,9 @@ describe('Waveform', () => {
     const bar = container.querySelector('span') as HTMLElement;
     expect(bar.style.background).toBe(stateColor.idle);
   });
+
+  it('spans the full container width edge-to-edge instead of a small cluster huddled at one end', () => {
+    const { container } = render(<Waveform state="idle" />);
+    expect(container.firstElementChild).toHaveStyle({ width: '100%', justifyContent: 'space-between' });
+  });
 });

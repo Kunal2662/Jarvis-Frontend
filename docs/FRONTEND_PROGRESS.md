@@ -1892,6 +1892,25 @@ confirmed defect; the rest of the audit is documented below as
   handling, send-to-Jarvis, and every existing testid are untouched; the
   waves are `aria-hidden` and purely decorative, exactly as before.
 
+**Follow-up fix (same PR, before merge):** a live screenshot after the
+above landed showed the two wave clusters still visually huddled at one
+end of their flex-1 container instead of spanning it — a plain-CSS layout
+bug, not a reactivity bug: the container never set `justifyContent`, so
+the (correctly colored/animated) fixed set of bars defaulted to
+`flex-start` and left a dead gap between the wave cluster and the outer
+edge of the card. Fixed by giving the `Waveform` root `width: '100%'` and
+`justifyContent: 'space-between'`, so the same bars now spread across the
+*entire* container edge-to-edge — from the card's inner edge continuously
+up to the orb, with only the deliberate 16px `gap-4` flex spacing (the
+same gap used everywhere else in that row) remaining, never a large dead
+zone. Verified via exact pixel measurements in the live browser (both
+wave containers' first/last bar boundaries matched their container's
+edges almost exactly). The now-redundant `justify-end` Tailwind class was
+removed from both call sites (`HeroOrb.tsx`, `VoiceOverlay.tsx`), since
+the component itself now owns full-width distribution. One new test
+(`Waveform.test.tsx`, "spans the full container width edge-to-edge…")
+asserts this directly.
+
 **Deliberately not done:** no new Admin interface (explicitly out of
 scope for this step — only the visual-language foundation that a future
 Admin surface could reuse, which is already satisfied by everything above
@@ -2116,16 +2135,27 @@ Important implemented areas in this checkpoint include:
 The latest reported frontend gates for the completed Steps 1–23 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **549/549 PASS** across 72 files, deterministic (`npm test -- --run --no-file-parallelism`, run alone —
-  not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps)
-  — all 536 Step 0–22 tests still pass, plus 13 net new for Step 23 — JARVIS Visual Identity:
-  - JARVIS Visual Identity (13 across 2 new files): `design-system/__tests__/Waveform.test.tsx` (new, 11 —
+- Vitest: **550/550 PASS** across 72 files, deterministic (`npm test -- --run --no-file-parallelism`, run alone —
+  not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps;
+  one run mid-step crashed with no `FAIL` markers and exit code 4 rather than a real failure — a resource-
+  contention crash, not a regression — and passed cleanly on retry)
+  — all 536 Step 0–22 tests still pass, plus 14 net new for Step 23 — JARVIS Visual Identity:
+  - JARVIS Visual Identity (14 across 2 new files): `design-system/__tests__/Waveform.test.tsx` (new, 12 —
     renders the requested bar count, every one of the 6 `VoiceState`s colors every bar with the exact same
     `stateColor` `VoiceOrb` itself uses, `offline` visibly dims bar opacity while every other state does not,
-    `mirror` reverses layout via `flexDirection`, the whole waveform is `aria-hidden` (purely decorative), and
-    it defaults to `idle` when no state is given), `features/voice/__tests__/VoiceOverlay.test.tsx` (new, 2 —
-    first-ever coverage for this previously-untested surface: the dialog renders its two new flanking wave
-    containers with real bars when open, and renders nothing when closed)
+    `mirror` reverses layout via `flexDirection`, the whole waveform is `aria-hidden` (purely decorative), it
+    defaults to `idle` when no state is given, and — added for the follow-up layout fix below — the
+    container spans its full width edge-to-edge via `width: 100%`/`justifyContent: space-between`),
+    `features/voice/__tests__/VoiceOverlay.test.tsx` (new, 2 — first-ever coverage for this previously-
+    untested surface: the dialog renders its two new flanking wave containers with real bars when open, and
+    renders nothing when closed)
+  - **Follow-up layout fix, same PR**: a live screenshot after the reactivity fix landed showed the wave
+    bars still huddled at one end of their container (a plain `justify-content` default-`flex-start` bug,
+    not a reactivity bug — the container never set `justifyContent`). Fixed with `width: '100%'` +
+    `justifyContent: 'space-between'` on the `Waveform` root, spreading the same bars across the *entire*
+    container; verified via exact pixel measurements live (both wave containers' first/last bar boundaries
+    matched their container edges almost exactly, with only the deliberate 16px `gap-4` flex spacing before
+    the orb remaining — never a dead zone)
   - Lint: one pre-existing `react-refresh/only-export-components` warning surfaced on `VoiceOrb.tsx` after
     exporting `stateColor` alongside the `VoiceOrb` component — resolved with the same inline
     `eslint-disable-next-line` convention already used elsewhere in this codebase for an identical situation

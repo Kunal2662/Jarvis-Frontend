@@ -76,7 +76,7 @@ export function VoiceOverlay({ open, onOpenChange }: VoiceOverlayProps) {
           </DialogPrimitive.Close>
 
           <div className="flex w-full max-w-2xl items-center justify-center gap-4 px-6">
-            <Waveform className="hidden flex-1 justify-end md:flex" state={state} mirror />
+            <Waveform className="hidden flex-1 md:flex" state={state} mirror />
             <VoiceOrb state={state} size={200} className="shrink-0" />
             <Waveform className="hidden flex-1 md:flex" state={state} />
           </div>

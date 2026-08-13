@@ -362,16 +362,38 @@ hero and the actual Voice overlay. No feature behavior, mock data, or
 service seam changed. Details in `docs/FRONTEND_PROGRESS.md` Step 23.
 
 ### 24. Responsive + Accessibility
-**Status:** 🟡 Partial ← next
-
-Complete desktop/tablet/mobile, keyboard, focus, semantics and reduced-motion coverage.
+**Status:** 🟢 Complete (frontend Step 24) — a hardening pass, not new
+product functionality. Audited horizontal-overflow behavior across all 17
+live routes at all 7 required viewports (1440×900 down to 375×812), plus
+Modal/Drawer/CommandPalette/SearchOverlay geometry, touch-target sizing,
+keyboard activation patterns, and reduced-motion coverage — the large
+majority was already solid (no horizontal overflow anywhere; Drawer/
+CommandPalette/SearchOverlay already height-bound with internal scroll;
+every interactive card already uses real `role="button"` +
+`tabIndex={0}` + Enter/Space `onKeyDown`, no non-semantic clickable
+`div`s; a global `prefers-reduced-motion` CSS rule already covers every
+CSS-driven animation/transition app-wide). Three genuine gaps found and
+fixed: (1) `ModalContent` had no max-height/scroll, so a tall `size="lg"`
+form (Automations/Calendar/Tasks/Notes/Device-pairing) could render taller
+than the viewport with its Save/Cancel buttons completely unreachable —
+confirmed live at 375×812; fixed with `max-h-[85vh] overflow-y-auto` on
+the shared primitive. (2) `Toast` was the one Framer Motion consumer that
+didn't check `useReducedMotion` (every other one — VoiceOrb, Waveform,
+ActivityTimeline, ChatPage — already did); fixed the same way, via a
+`toastMotionProps(reduced)` helper. (3) Added a standard skip-to-main-
+content link in `AppShell` (WCAG 2.4.1) — no skip link existed before.
+Icon-button/Switch/Modal-close touch targets (36px/38×22px/32px) were
+reviewed and left as-is: all exceed the WCAG 2.5.8 AA minimum (24×24px),
+and the topbar has zero pixel headroom at 375px width to grow them
+further without reintroducing overflow. Details in
+`docs/FRONTEND_PROGRESS.md` Step 24.
 
 ---
 
 ## Phase 11 — Release Quality
 
 ### 25. Performance Engineering
-**Status:** 🔴 Not Started
+**Status:** 🔴 Not Started ← next
 
 60 FPS interaction target, lazy loading, code splitting, efficient streaming, low CPU/RAM and fast startup/navigation.
 

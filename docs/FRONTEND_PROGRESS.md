@@ -1921,6 +1921,130 @@ change to any feature's mock data or service seam.
 
 ---
 
+## Step 24 — Responsive + Accessibility
+
+**Status: COMPLETE — a hardening pass, not new product functionality. An
+audit-first pass across desktop/tablet/mobile viewports, keyboard/focus,
+semantics, touch targets, and reduced motion found the large majority of
+the app already solid; three genuine, confirmed gaps were fixed.**
+
+Roadmap item 24 (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 10) read
+"Complete desktop/tablet/mobile, keyboard, focus, semantics and
+reduced-motion coverage." Per this step's own instructions and the
+audit-first discipline established in Step 23, the frontend was audited
+*before* any code was touched.
+
+**Audit method:**
+
+- An automated live-browser overflow scan across all 17 live routes at
+  all 7 required viewports (1440×900, 1280×800, 1024×768, 834×1194,
+  768×1024, 390×844, 375×812), driven via `history.pushState`/`popstate`
+  client-side navigation rather than 119 individual full page loads.
+- Live interaction testing of Modal (a representative `size="lg"` form),
+  a representative Drawer, CommandPalette, and SearchOverlay.
+- Direct measurement of touch-target sizes (`getBoundingClientRect()`) for
+  the mobile tab bar, topbar icon buttons, the floating Voice orb button,
+  and the `Switch` toggle.
+- Code-level review of keyboard-interactive patterns (`role="button"` +
+  `tabIndex` + `onKeyDown` usage), non-semantic clickable elements, and
+  every Framer Motion (`from 'framer-motion'`) consumer's reduced-motion
+  handling.
+
+**Audit findings — already solid, verification only (no code changed for
+these):**
+
+- **Horizontal overflow**: zero found, anywhere, at any of the 7 required
+  viewports, across all 17 routes.
+- **Drawer / CommandPalette / SearchOverlay**: all already height-bound
+  with internal scroll (`max-h-[min(60vh,420px)]` / `max-h-[min(60vh,480px)]`
+  with `overflow-y-auto`, or the Drawer's own per-page scrollable body) —
+  the Step 9/17 work here holds up.
+- **Keyboard-interactive cards**: every clickable card/row across the app
+  (`AutomationCard`, `RoomCard`, `AgentCard`, `TaskRow`, and 11 others)
+  already uses a real `role="button"` + `tabIndex={0}` + an `onKeyDown`
+  handling both `Enter` and `Space` with `preventDefault()` — spot-checked
+  `AutomationCard.tsx`, consistent codebase-wide. No non-semantic
+  `<div onClick>` was found anywhere in `src/features` or
+  `src/design-system`.
+- **Reduced motion**: a global `@media (prefers-reduced-motion: reduce)`
+  rule already exists in `index.css` and forces every CSS-driven
+  animation/transition to near-zero duration app-wide — this already
+  covers Modal/Drawer/CommandPalette/SearchOverlay open-close, the
+  shimmer/press micro-interactions, with zero extra code. Of the 6 Framer
+  Motion consumers (JS-driven, outside that CSS rule's reach), 4 already
+  called `useReducedMotion()` (`VoiceOrb`, `Waveform`, `ActivityTimeline`,
+  `ChatPage`); `Dock` is unused/unmounted dead code (not reachable by any
+  live route, left untouched); `Toast` was the one live gap (see fixes,
+  below). No page-transition animation exists anywhere to gate.
+- **Dense data / tables**: the `Table` design-system primitive already
+  self-wraps in `overflow-x-auto` (currently unused by any live feature,
+  but correctly future-proofed already).
+- **Touch targets**: the mobile bottom tab bar (92×46px) and the floating
+  Voice orb button (56×56px) already comfortably exceed 44×44px.
+
+**Three genuine gaps found and fixed:**
+
+1. **Modal viewport-height overflow — confirmed live, blocking.**
+   `ModalContent` had no `max-height` or scroll. Live-tested at 375×812:
+   the Automations create-form modal (`size="lg"`) rendered 970px tall;
+   its Cancel/Create buttons sat at y≈1367 — entirely below the 812px
+   viewport, with no scroll mechanism anywhere to reach them. This affects
+   every `size="lg"` form app-wide: Automations, Calendar, Tasks, Notes,
+   Device pairing. Fixed with `max-h-[85vh] overflow-y-auto` added to the
+   shared `ModalContent` primitive (`design-system/primitives/Modal/Modal.tsx`)
+   — one change, every current and future Modal consumer covered. Verified
+   live that the submit button becomes reachable via the modal's own
+   internal scroll (see the environment note below on why this required
+   forcing the entrance animation to complete for verification).
+2. **`Toast` ignored `prefers-reduced-motion`.** Extracted
+   `toastMotionProps(reduced)` in `design-system/composites/Toast/Toast.tsx`
+   — instant, offset-free (`opacity` only, `duration: 0`) when reduced;
+   unchanged spring enter/exit otherwise — mirroring exactly how `Waveform`
+   already branches on the same hook. Toast fires on nearly every user
+   action app-wide (Automations, Smart Home scenes, Notes/Tasks/Calendar
+   CRUD, Quick Settings, ...), so this was the highest-traffic remaining
+   gap.
+3. **No skip-to-main-content link.** Keyboard users had to tab through
+   every topbar control (search, voice, notifications, appearance,
+   settings, avatar — up to 6 stops) before reaching page content on
+   every single route. Added a standard, visually-hidden-until-focused
+   skip link (`sr-only focus:not-sr-only`, WCAG 2.4.1) in `AppShell`, the
+   single shared shell every route renders through, plus
+   `id="main-content"`/`tabIndex={-1}` on `<main>` so activating the link
+   moves real keyboard focus, not just scroll position.
+
+**Reviewed and deliberately left unchanged:** icon-button (36px), `Switch`
+(38×22px), and the Modal/Drawer close button (32px) touch targets all
+fall short of the 44×44px *ideal* but comfortably exceed the WCAG 2.5.8 AA
+minimum (24×24px). Measured live: the topbar's trailing icon row has zero
+pixel headroom at 375px width (right edge at 359px of 375px) to grow any
+of them without reintroducing horizontal overflow — the same class of
+visual regression Step 23 had just fixed. Documented here as an audited,
+intentional trade-off rather than left silent.
+
+**Environment limitation, honestly noted:** this session's Browser pane
+again reported `document.visibilityState: "hidden"` / `document.hasFocus():
+false` throughout (the same limitation noted in Steps 20/23's own QA).
+This (a) paused the Modal's CSS entrance animation mid-keyframe, stalling
+its centering `transform` at the animation's `from` state until manually
+forced complete for live verification, and (b) meant the skip link's
+`:focus` CSS genuinely could not be triggered live — `.focus()` correctly
+moves `document.activeElement`, but `:focus` does not match unless the
+document itself is OS-focused. The skip link is confirmed correct by
+construction (the standard, widely-used Tailwind `sr-only`/
+`focus:not-sr-only` pattern; its generated CSS rule was confirmed present
+in the loaded stylesheet) and by `AppShell.test.tsx`'s structural
+assertions, not by a live visual check.
+
+**Deliberately not done:** no redesign of any page, no new design
+tokens/spacing scale, no second navigation system, no change to
+Drawer/CommandPalette/SearchOverlay (already correct), no change to any
+feature's mock data or service seam, no full accessibility audit tooling
+(axe/Lighthouse) integrated — this was a targeted, evidence-based pass
+against the brief's explicit checklist, not a general audit sweep.
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -2132,14 +2256,72 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–23 were green:
+The latest reported frontend gates for the completed Steps 1–24 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **550/550 PASS** across 72 files, deterministic (`npm test -- --run --no-file-parallelism`, run alone —
+- Vitest: **557/557 PASS** across 75 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
   not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps;
-  one run mid-step crashed with no `FAIL` markers and exit code 4 rather than a real failure — a resource-
-  contention crash, not a regression — and passed cleanly on retry)
-  — all 536 Step 0–22 tests still pass, plus 14 net new for Step 23 — JARVIS Visual Identity:
+  one run mid-step reported one timeout on `IntegrationsPage`'s Home Assistant test (unrelated to any file
+  touched this step) under sustained full-suite load, which passed in 3.06s — well under its 5s timeout — in
+  isolation; the same resource-contention pattern documented in earlier steps, not a regression, and the full
+  suite passed cleanly 557/557 on retry)
+  — all 550 Step 0–23 tests still pass, plus 7 net new for Step 24 — Responsive + Accessibility:
+  - Responsive + Accessibility (7 across 3 new files): `design-system/__tests__/Modal.test.tsx` (new, 1 —
+    `ModalContent` carries both `max-h-[85vh]` and `overflow-y-auto` so a form taller than the viewport
+    scrolls internally instead of pushing its footer actions off-screen), `design-system/__tests__/Toast.test.tsx`
+    (new, 4 — the extracted `toastMotionProps(reduced)` helper drops the spring/positional offsets to an
+    instant, opacity-only transition when motion is reduced and keeps the spring entrance/exit otherwise; a
+    toast renders and dismisses on click; a `danger`-variant toast announces via `role="alert"`, others via
+    `role="status"`), `design-system/__tests__/AppShell.test.tsx` (new, 2 — the new skip link targets a
+    `<main id="main-content" tabIndex={-1}>` landmark and carries the `sr-only`/`focus:not-sr-only` classes
+    that keep it invisible until keyboard-focused)
+  - Audit method: a live-browser pass (automated overflow scan across all 17 live routes at all 7 required
+    viewports — 1440×900, 1280×800, 1024×768, 834×1194, 768×1024, 390×844, 375×812 — via
+    `history.pushState`/`popstate` client-side navigation, far faster than 119 individual full navigations)
+    found **zero horizontal overflow anywhere**, before or after this step's fixes. Confirmed already-solid,
+    no code change needed: `Drawer`/`CommandPalette`/`SearchOverlay` are already height-bound with internal
+    scroll (Step 9/17 work holds up); every interactive card already uses real `role="button"` +
+    `tabIndex={0}` + Enter/Space `onKeyDown` (spot-checked `AutomationCard.tsx`, consistent codebase-wide, no
+    non-semantic clickable `div`s found anywhere); a global `@media (prefers-reduced-motion: reduce)` rule in
+    `index.css` already forces every CSS-driven animation/transition to near-zero duration app-wide (Modal/
+    Drawer/CommandPalette/SearchOverlay open-close, shimmer, press); `Table` already self-wraps in
+    `overflow-x-auto` (unused today, but future-proofed correctly).
+  - Three genuine gaps found and fixed:
+    1. **Modal viewport overflow (confirmed live, blocking)** — `ModalContent` had no max-height or scroll.
+       At 375×812 the Automations create-form modal (`size="lg"`) rendered 970px tall with its Cancel/Create
+       buttons at y≈1367 — entirely off-screen, no way to reach them. This affects every `size="lg"` form:
+       Automations, Calendar, Tasks, Notes, Device pairing. Fixed with `max-h-[85vh] overflow-y-auto` added
+       to the shared `ModalContent` primitive — one change, every current and future Modal consumer covered.
+       Verified live: the submit button becomes reachable via the modal's own internal scroll once its
+       entrance animation completes (see the QA note below on why that required forcing the animation).
+    2. **Toast ignored `prefers-reduced-motion`** — every other Framer Motion consumer in the design system
+       (`VoiceOrb`, `Waveform`, `ActivityTimeline`, `ChatPage`) already checks `useReducedMotion()`; `Toast`
+       (fires on nearly every user action app-wide) didn't. Fixed by extracting `toastMotionProps(reduced)`
+       and gating the spring enter/exit the same way the others already do.
+    3. **No skip-to-main-content link** — keyboard users had to tab through every topbar control (search,
+       voice, notifications, appearance, settings, avatar) before reaching page content on every route. Added
+       a standard visually-hidden-until-focused skip link (`sr-only focus:not-sr-only`) in `AppShell`, plus
+       `id="main-content"`/`tabIndex={-1}` on `<main>` so activating it moves real keyboard focus, not just
+       scroll position.
+  - Reviewed and deliberately left unchanged: icon-button (36px), Switch (38×22px), and Modal-close-button
+    (32px) touch targets all fall short of the 44×44px *ideal* but comfortably exceed the WCAG 2.5.8 AA
+    minimum (24×24px); the topbar's trailing icon row measured with zero pixel headroom at 375px width
+    (right edge at 359 of 375) to grow any of them without reintroducing overflow — the same visual-regression
+    risk Step 23 had just fixed. Documented here as an audited, intentional trade-off rather than left silent.
+  - Browser QA (live dev server): the automated overflow scan (above) covered all 7 required viewports across
+    17 routes. Console checked for new errors — none found beyond pre-existing, environment-level Vite HMR
+    WebSocket noise and one pre-existing `Function components cannot be given refs` warning on `Modal.tsx`'s
+    `Overlay` (present before this step; `Overlay` itself was not modified). **Environment limitation, honestly
+    noted**: this session's Browser pane again reported `document.visibilityState: "hidden"` /
+    `document.hasFocus(): false` throughout (the same limitation noted in Step 20/23's own QA), which (a)
+    paused the Modal's CSS entrance animation mid-keyframe, stalling its centering `transform` at the
+    animation's `from` state until manually forced complete for verification, and (b) meant the skip link's
+    `:focus` CSS genuinely could not be triggered live (`.focus()` correctly moves `document.activeElement`
+    but does not make `:focus` match when the document itself isn't OS-focused) — confirmed real in a normal,
+    foregrounded browser tab by construction (standard, widely-used Tailwind `sr-only`/`focus:not-sr-only`
+    pattern; the generated CSS rule was confirmed present in the loaded stylesheet) and by the `AppShell.test.tsx`
+    structural tests, not by a live visual check.
+  - Was 550/550 across 72 files for the completed Steps 1–23:
   - JARVIS Visual Identity (14 across 2 new files): `design-system/__tests__/Waveform.test.tsx` (new, 12 —
     renders the requested bar count, every one of the 6 `VoiceState`s colors every bar with the exact same
     `stateColor` `VoiceOrb` itself uses, `offline` visibly dims bar opacity while every other state does not,
@@ -2473,8 +2655,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 23 | Developer Mode | 🟢 Complete (one new real `SettingsService`-backed preference, `developerModeEnabled`; a genuine Command Palette discoverability gate over the pre-existing, previously-unused `developerModules` selector and `/design` page; a Settings → Developer tab summarizing the Step 20 `DiagnosticsService` registry rather than duplicating it; no second orchestration/permission/execution system, no invented Core/MCP endpoint — no Core contract required for what was built) |
 | 24 | Unified JARVIS Command Center / cross-surface UX | 🟢 Complete (an orchestration/discovery layer over the pre-existing Command Palette — two new command groups, `app/commandCenter.ts`'s `buildSearchGroup`/`buildSceneControlGroup`, composing the existing Universal Search overlay and `SmartHomeService.triggerScene()`; no new page, no second search index, no second execution engine; no Core contract required) |
 | 25 | Final JARVIS visual/interaction polish | 🟢 Complete (a visual-system consistency audit — logo clear-space, glow discipline, popup centering/geometry, typography, spacing — found everything already consistent except one real defect: `Waveform`, relocated into `design-system/patterns/Waveform/` alongside `VoiceOrb`, now reacts to the orb's real `VoiceState` via the newly-exported `stateColor` map; `VoiceOverlay.tsx` now flanks the real orb with the same reactive waves; no feature behavior changed) |
-| 26 | Responsive + accessibility completion | 🟡 Partial / pending final QA ← next |
-| 27 | Performance engineering | 🔴 Not Started |
+| 26 | Responsive + accessibility completion | 🟢 Complete (audited all 17 live routes at all 7 required viewports — zero horizontal overflow found; fixed a confirmed Modal viewport-overflow bug, gated `Toast`'s Framer Motion on `useReducedMotion` like every other consumer, and added a skip-to-main-content link; touch targets/Drawer/CommandPalette/SearchOverlay/semantic markup already solid, no change needed — no Core contract required) |
+| 27 | Performance engineering | 🔴 Not Started ← next |
 | 28 | Final frontend QA/release validation | 🔴 Not Started |
 
 > The numbering above is the **current frontend continuation sequence**. The older `FRONTEND_IMPLEMENTATION_ROADMAP.md` uses a different numbering scheme and still contains historical statuses. Do not interpret its older `Not Started` labels as evidence that Steps 1–7 in this document are missing from the source.
@@ -2569,10 +2751,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–23.
+8. Do not redo Steps 0–24.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Responsive + Accessibility** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 10, item 24 — the next unstarted item after Step 23 JARVIS Visual Identity completed item 23. "Complete desktop/tablet/mobile, keyboard, focus, semantics and reduced-motion coverage" — re-read the architecture docs and verify scope before implementing).
+11. Continue from **Performance Engineering** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11, item 25 — the next unstarted item now that item 24 Responsive + Accessibility is complete — re-read the architecture docs and verify scope before implementing).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -2585,9 +2767,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 23 — JARVIS Visual Identity. A visual-system consistency pass, not a feature milestone or design-system rebuild. Audited logo clear-space, glow discipline, popup/modal centering + geometry, typography, and spacing across every shipped surface — all already consistent (Modal/CommandPalette/SearchOverlay centering was already fixed in Step 17; no glowing decorative line exists anywhere in the codebase; typography already consistently uses the design-system token scale) — no code change was needed for any of that. The one genuine defect, confirmed by a live user report during this session ("the waves are also incomplete — I want animated waves that react with the orb"): `Waveform` (relocated from `features/home/` into `design-system/patterns/Waveform/`, alongside `VoiceOrb`) took only a boolean and always animated with a fixed color and fully random motion, completely disconnected from the orb's actual `VoiceState`; `VoiceOverlay.tsx` (the real voice interaction surface) showed the orb with no waves at all. Both now share `VoiceOrb`'s newly-exported `stateColor` map and react with real per-state amplitude/speed (calm at idle, brighter/quicker while listening, measured purple while thinking, fastest while speaking, dimmed and static while offline). No feature behavior, mock data, or service seam changed. This completes roadmap Phase 10 item 23.
+**LAST COMPLETED FRONTEND STEP:** Step 24 — Responsive + Accessibility. A hardening pass, not new product functionality. Audited horizontal-overflow behavior across all 17 live routes at all 7 required viewports (1440×900 down to 375×812) plus Modal/Drawer/CommandPalette/SearchOverlay geometry, touch-target sizing, keyboard activation patterns, and reduced-motion coverage — the large majority was already solid (zero horizontal overflow anywhere; Drawer/CommandPalette/SearchOverlay already height-bound with internal scroll; every interactive card already uses real `role="button"` + `tabIndex={0}` + Enter/Space `onKeyDown`; a global `prefers-reduced-motion` CSS rule already covers every CSS-driven animation/transition app-wide). Three genuine gaps were found and fixed: (1) `ModalContent` had no max-height/scroll, so a tall `size="lg"` form (Automations/Calendar/Tasks/Notes/Device-pairing) could render taller than the viewport with its Save/Cancel buttons entirely unreachable — confirmed live at 375×812; fixed with `max-h-[85vh] overflow-y-auto` on the shared primitive. (2) `Toast` was the one Framer Motion consumer that didn't check `useReducedMotion` (every other one — VoiceOrb, Waveform, ActivityTimeline, ChatPage — already did); fixed via an extracted `toastMotionProps(reduced)` helper. (3) Added a standard skip-to-main-content link in `AppShell` (WCAG 2.4.1) — no skip link existed before. Icon-button/Switch/Modal-close touch targets were reviewed and left as-is: all exceed the WCAG 2.5.8 AA minimum, and the topbar has zero pixel headroom at 375px width to grow them further without reintroducing overflow. This completes roadmap Phase 10 item 24.
 
-**NEXT FRONTEND STEP:** Responsive + Accessibility (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 10, item 24 — the next unstarted item now that item 23 JARVIS Visual Identity is complete. "Complete desktop/tablet/mobile, keyboard, focus, semantics and reduced-motion coverage" — verify scope before implementing.)
+**NEXT FRONTEND STEP:** Performance Engineering (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11, item 25 — the next unstarted item now that item 24 Responsive + Accessibility is complete — verify scope before implementing.)
 
 **CURRENT PRODUCT STATE:**
 
@@ -2617,10 +2799,11 @@ A new Emergent workspace/account or coding agent should:
 - Developer Mode: complete as a Settings → Developer tab + a real Command Palette discoverability gate at `/design`, using one new `SettingsService`-backed preference (`developerModeEnabled`) — no second orchestration/permission/execution system, no invented Core/MCP endpoint, no Core contract required for what was built
 - Global Command Center: complete as two new Command Palette (`⌘K`) groups — "Search" (bridges to the existing Universal Search overlay) and "Control" (triggers the existing Smart Home scene set via `SmartHomeService.triggerScene()`) — composed via `app/commandCenter.ts`; no new page, no second search index, no second execution engine, no Core contract required for what was built
 - JARVIS Visual Identity: complete as a consistency audit (logo/glow/popup-centering/typography/spacing all already correct) plus one real fix — `Waveform` (now in `design-system/patterns/Waveform/`) reacts to `VoiceOrb`'s real `stateColor`-mapped state with per-state amplitude/speed, shared by both the Home hero and the real Voice overlay; no Core contract required, no feature behavior changed
+- Responsive + Accessibility: complete as a hardening pass across desktop/tablet/mobile viewports, keyboard/focus, semantics, touch targets, and reduced motion — zero horizontal overflow found anywhere (17 routes × 7 required viewports); Modal now caps at `max-h-[85vh] overflow-y-auto` (was a confirmed live bug — tall forms could push their footer actions entirely off-screen and unreachable on mobile); `Toast` now respects `prefers-reduced-motion` like every other Framer Motion consumer; a skip-to-main-content link was added to `AppShell`; Drawer/CommandPalette/SearchOverlay/semantic markup/touch targets were audited and found already solid — no Core contract required, no feature behavior changed
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START RESPONSIVE + ACCESSIBILITY automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START PERFORMANCE ENGINEERING automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

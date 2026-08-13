@@ -20,10 +20,18 @@ export interface AppShellProps {
 export function AppShell({ sidebar, topbar, statusbar, children, overlay, className }: AppShellProps) {
   return (
     <div className={cn('relative flex h-screen w-full overflow-hidden bg-surface-canvas', className)}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-modal focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-body-sm focus:font-medium focus:text-content-on-accent focus:outline-none focus:ring-2 focus:ring-accent-ring focus:ring-offset-2 focus:ring-offset-surface-canvas"
+      >
+        Skip to main content
+      </a>
       {sidebar}
       <div className="flex min-w-0 flex-1 flex-col">
         {topbar}
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
+        <main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none">
+          {children}
+        </main>
         {statusbar}
       </div>
       {overlay}

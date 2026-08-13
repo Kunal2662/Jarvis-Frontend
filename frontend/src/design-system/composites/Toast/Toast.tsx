@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Info, Sparkles, X, XCircle } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 export type ToastVariant = 'info' | 'success' | 'warning' | 'danger' | 'ai';
 
@@ -33,6 +34,18 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
+/** Toast enter/exit motion — instant and offset-free when motion is reduced. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function toastMotionProps(reduced: boolean) {
+  return {
+    layout: !reduced,
+    initial: reduced ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.96 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: reduced ? { opacity: 0 } : { opacity: 0, x: 24, scale: 0.96 },
+    transition: reduced ? { duration: 0 } : { type: 'spring' as const, stiffness: 480, damping: 34 },
+  };
+}
+
 const icons: Record<ToastVariant, ReactNode> = {
   info: <Info className="size-4 text-info" />,
   success: <CheckCircle2 className="size-4 text-success" />,
@@ -44,6 +57,7 @@ const icons: Record<ToastVariant, ReactNode> = {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const timers = useRef<Map<string, number>>(new Map());
+  const reduced = useReducedMotion();
 
   const dismiss = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -84,11 +98,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {toasts.map((t) => (
                 <motion.div
                   key={t.id}
-                  layout
-                  initial={{ opacity: 0, y: 16, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 24, scale: 0.96 }}
-                  transition={{ type: 'spring', stiffness: 480, damping: 34 }}
+                  {...toastMotionProps(reduced)}
                   className={cn(
                     'glass glass-thin pointer-events-auto flex items-start gap-3 rounded-lg p-3.5 shadow-e3',
                     t.variant === 'ai' && 'shadow-glow-sm',

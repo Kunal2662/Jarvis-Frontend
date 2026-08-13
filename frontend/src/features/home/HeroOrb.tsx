@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Glass, VoiceOrb, cn, type VoiceState } from '../../design-system';
-import { Waveform } from './Waveform';
+import { Glass, VoiceOrb, Waveform, cn, stateColor, type VoiceState } from '../../design-system';
 
 const states: { value: VoiceState; label: string }[] = [
   { value: 'idle', label: 'Idle' },
@@ -48,7 +47,7 @@ export function HeroOrb({ onActivate, state: controlled, controls }: HeroOrbProp
 
       <div className="relative flex flex-col items-center gap-6">
         <div className="flex w-full items-center justify-center gap-4">
-          <Waveform className="hidden flex-1 justify-end md:flex" active={active} mirror />
+          <Waveform className="hidden flex-1 md:flex" state={state} mirror />
           <VoiceOrb
             state={state}
             size={220}
@@ -57,7 +56,7 @@ export function HeroOrb({ onActivate, state: controlled, controls }: HeroOrbProp
             label="Activate Jarvis voice"
             className="shrink-0"
           />
-          <Waveform className="hidden flex-1 md:flex" active={active} />
+          <Waveform className="hidden flex-1 md:flex" state={state} />
         </div>
 
         <div className="flex flex-col items-center gap-1 text-center">
@@ -69,7 +68,7 @@ export function HeroOrb({ onActivate, state: controlled, controls }: HeroOrbProp
         <div className="glass glass-thin flex items-center gap-3 rounded-full px-4 py-2" data-testid="hero-status">
           <span
             className={cn('size-2 rounded-full', active && 'animate-pulse')}
-            style={{ background: state === 'offline' ? 'var(--content-disabled)' : 'var(--ai-aura)' }}
+            style={{ background: stateColor[state] }}
           />
           <span className="text-body-sm text-content">{statusText[state]}</span>
         </div>

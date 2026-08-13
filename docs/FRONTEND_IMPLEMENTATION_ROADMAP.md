@@ -343,12 +343,26 @@ one). Details in `docs/FRONTEND_PROGRESS.md` Step 22.
 ## Phase 10 — Visual Experience
 
 ### 23. JARVIS Visual Identity
-**Status:** 🟡 Partial ← next
-
-Existing design system, orb, waveform and visual language exist. Add final startup/interaction polish without rebuilding the design system.
+**Status:** 🟢 Complete (frontend Step 23) — a visual-system consistency
+pass, not a feature milestone or design-system rebuild. Audited logo
+clear-space, glow discipline, popup/modal centering + geometry,
+typography, and spacing across every shipped surface — all already
+consistent (the Step 17 "center Search overlay/Command Palette" fix and
+the existing design-system token discipline already covered these; no
+code change was needed for them). The one genuine defect found and fixed:
+`Waveform` (relocated from `features/home/` into
+`design-system/patterns/Waveform/`, alongside `VoiceOrb`) previously took
+only a boolean and always animated with a fixed color and fully random
+motion, completely disconnected from the orb's actual `VoiceState`;
+`VoiceOverlay.tsx` (the real voice interaction surface) showed the orb
+with no waves at all. Both now share `VoiceOrb`'s exported `stateColor`
+map and react with per-state amplitude/speed — real reactivity, not a
+single generic ambient loop, and now consistent between Home's decorative
+hero and the actual Voice overlay. No feature behavior, mock data, or
+service seam changed. Details in `docs/FRONTEND_PROGRESS.md` Step 23.
 
 ### 24. Responsive + Accessibility
-**Status:** 🟡 Partial
+**Status:** 🟡 Partial ← next
 
 Complete desktop/tablet/mobile, keyboard, focus, semantics and reduced-motion coverage.
 

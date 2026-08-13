@@ -72,6 +72,7 @@ export * from './patterns/Dock/Dock';
 export * from './patterns/QuickSettings/QuickSettings';
 export * from './patterns/WindowFrame/WindowFrame';
 export * from './patterns/VoiceOrb/VoiceOrb';
+export * from './patterns/Waveform/Waveform';
 
 // Layouts
 export * from './layouts/AppShell/AppShell';

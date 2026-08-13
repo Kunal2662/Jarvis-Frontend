@@ -39,14 +39,19 @@ describe('Notes routing + nav', () => {
 
   it('navigating to /notes renders the Notes page (not the "coming soon" placeholder)', async () => {
     renderApp('/notes');
-    expect(screen.getByRole('heading', { name: 'Notes' })).toBeInTheDocument();
-    await screen.findByTestId('notes-page');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('notes-page', {}, { timeout: 5000 });
+    // level: 1 disambiguates the page's own title from a seeded note that
+    // happens to also be titled "Notes" (an <h3> in its card).
+    expect(screen.getByRole('heading', { name: 'Notes', level: 1 })).toBeInTheDocument();
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar', async () => {
     renderApp('/notes');
-    await screen.findByTestId('notes-page');
+    await screen.findByTestId('notes-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

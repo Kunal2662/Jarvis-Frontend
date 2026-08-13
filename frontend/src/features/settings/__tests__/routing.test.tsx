@@ -52,14 +52,21 @@ describe('Settings routing + nav', () => {
 
   it('navigating to /settings renders the SettingsPage directly (no longer the shared placeholder)', async () => {
     renderApp('/settings');
-    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
-    await screen.findByTestId('settings-page');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting) on top of SettingsProvider's own simulated-latency fetch,
+    // so reaching the heading can legitimately take longer than the
+    // default 1000ms findBy timeout under load.
+    await screen.findByTestId('settings-page', {}, { timeout: 5000 });
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
   it('the existing /google, /microsoft redirects to /settings still work', async () => {
     renderApp('/google');
-    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    // Generous timeout: Settings is now lazy-loaded (Step 25 route splitting).
+    expect(
+      await screen.findByRole('heading', { name: 'Settings' }, { timeout: 5000 }),
+    ).toBeInTheDocument();
   });
 
   it('/diagnostics and /performance no longer redirect to /settings — Diagnostics (Step 20) has its own page', () => {
@@ -72,12 +79,16 @@ describe('Settings routing + nav', () => {
     renderApp('/');
     const user = userEvent.setup();
     await user.click(screen.getByTestId('open-settings'));
-    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    // Generous timeout: Settings is now lazy-loaded (Step 25 route splitting).
+    expect(
+      await screen.findByRole('heading', { name: 'Settings' }, { timeout: 5000 }),
+    ).toBeInTheDocument();
   });
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar, from /settings', async () => {
     renderApp('/settings');
-    await screen.findByTestId('settings-page');
+    // Generous timeout: Settings is now lazy-loaded (Step 25 route splitting).
+    await screen.findByTestId('settings-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

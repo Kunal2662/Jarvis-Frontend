@@ -39,14 +39,19 @@ describe('Tasks routing + nav', () => {
 
   it('navigating to /tasks renders the Tasks page (not the "coming soon" placeholder)', async () => {
     renderApp('/tasks');
-    expect(screen.getByRole('heading', { name: 'Tasks' })).toBeInTheDocument();
-    await screen.findByTestId('tasks-page');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('tasks-page', {}, { timeout: 5000 });
+    // level: 1 disambiguates the page's own title from a seeded task that
+    // happens to also be titled "Tasks" (an <h3> in its card).
+    expect(screen.getByRole('heading', { name: 'Tasks', level: 1 })).toBeInTheDocument();
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
   it('the /projects legacy path redirects to /tasks (Projects is a grouping inside Tasks, not a route)', async () => {
     renderApp('/projects');
-    await screen.findByTestId('tasks-page');
+    await screen.findByTestId('tasks-page', {}, { timeout: 5000 });
   });
 
   it('there is no separate /projects page — no Projects nav destination exists', () => {
@@ -56,7 +61,7 @@ describe('Tasks routing + nav', () => {
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar', async () => {
     renderApp('/tasks');
-    await screen.findByTestId('tasks-page');
+    await screen.findByTestId('tasks-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

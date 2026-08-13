@@ -142,7 +142,8 @@ describe('Global Command Center (enhanced Command Palette)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument());
 
     await user.click(screen.getByTestId('open-settings'));
-    await screen.findByTestId('settings-page');
+    // Generous timeout: Settings is now lazy-loaded (Step 25 route splitting).
+    await screen.findByTestId('settings-page', {}, { timeout: 5000 });
     await user.click(screen.getByTestId('settings-tab-developer'));
     await user.click(await screen.findByTestId('settings-developer-mode-toggle'));
     await waitFor(() =>

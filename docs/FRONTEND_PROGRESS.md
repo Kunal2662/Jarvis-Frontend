@@ -2045,6 +2045,129 @@ against the brief's explicit checklist, not a general audit sweep.
 
 ---
 
+## Step 25 — Performance Engineering
+
+**Status: COMPLETE — a measurement-first pass, not new product
+functionality. Every meaningful change is backed by a before/after
+number, not a guess.**
+
+Roadmap item 25 (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11) read "60
+FPS interaction target, lazy loading, code splitting, efficient
+streaming, low CPU/RAM and fast startup/navigation." Per this step's own
+instructions, a baseline was captured and an evidence-based audit was
+performed *before* any code was touched.
+
+**Baseline (clean production build, this branch, before any change):**
+
+| | Size | Gzip |
+|---|---:|---:|
+| `index` (main) chunk | 624.47 kB | 162.60 kB |
+| `radix` chunk | 265.10 kB | 84.89 kB |
+| `motion` chunk (framer-motion) | 122.75 kB | 40.71 kB |
+| CSS | 47.21 kB | 9.40 kB |
+
+2500 modules, 14.42s build. **Every one of the 18 routed pages
+(`App.tsx`) was statically imported**, so all of them — Knowledge,
+Intelligence, AI Apps, Notes, Tasks, Calendar, Files, Smart Home + its
+two sub-pages, Memory, Agents, Diagnostics, Settings, Design System —
+shipped inside that single main chunk on every page load, regardless of
+which page was actually visited.
+
+**Audit findings — already correct, verification only (no code changed
+for these):**
+
+- **Service/adapter instantiation**: every `getXService()` factory
+  (`getSearchService`, `getSmartHomeService`, all 17 others) returns a
+  cached module-level singleton, never a `new` instance per call —
+  confirmed by reading the source of several, including the two most
+  traffic-heavy (Search, Smart Home). Calling one without `useMemo`
+  costs a ternary, not a re-initialization.
+- **Smart Home realtime**: the mock adapter's simulated-drift
+  `setInterval` (`mockSmartHomeAdapter.ts`) already starts only when a
+  subscriber exists and stops when the last one unsubscribes;
+  `SmartHomePage.tsx`'s effect is already keyed on a stable joined-id
+  string specifically to avoid needless resubscribe/interval churn (the
+  code already carries a comment explaining exactly this design choice).
+- **Timers/listeners**: every `setTimeout`/`addEventListener` found
+  across the app (`useHotkey`, `VoiceOverlay`'s auto-start,
+  `UniversalSearch`'s debounce + arrow-key nav + in-flight-request
+  `AbortController`, `useMediaQuery`, `ThemeProvider`) already cleans up
+  correctly in its effect's return function. No leak found.
+- **Search fan-out**: Universal Search's category search already runs
+  via `Promise.all` (fixed in Step 12), not sequential `await`s.
+- **Dataset sizes**: mock data is small (5–30 items per feature) —
+  filtering/sorting is trivially cheap; adding `useMemo`/`useCallback`
+  there would be optimization without evidence, which this step's own
+  instructions explicitly warn against.
+- **Dense data**: the `Table` design-system primitive already self-wraps
+  in `overflow-x-auto` (currently unused by any live feature, but
+  correctly future-proofed already).
+
+**The one measured, high-leverage optimization — route code-splitting:**
+
+- The 15 non-primary-nav routes — Knowledge, Intelligence, AI Apps,
+  Notes, Tasks, Calendar, Files, Smart Home, Device Management,
+  Integrations, Memory, Agents, Diagnostics, Settings, Design System —
+  are now `React.lazy(() => import(...))` in `App.tsx`, each wrapped in
+  its own `<Suspense fallback={<RouteFallback />}>`. Home, Chat, and
+  Automations (the primary Home/Chat/Voice/Automations strip minus
+  Voice, which has no route of its own — it's an always-mounted overlay)
+  stay eagerly imported, since they're the surfaces most likely to be
+  visited every session.
+- `app/RouteFallback.tsx` (new) — a small shared loading state reusing
+  the existing `Spinner` primitive, mirroring exactly the treatment
+  `StateView`'s own `loading` status already uses elsewhere
+  (`Spinner size="lg"` + a "Loading…" caption) — no new visual language.
+- **Result**: the main chunk dropped from 624.47 kB to 433.52 kB (−30.6%
+  uncompressed; 162.60 kB → 125.31 kB gzip, −22.9%), with the 15 routes
+  now split into ~28 small on-demand chunks ranging 0.08 kB–24.12 kB
+  each. `motion`/`radix`/CSS are unchanged (still eager, still used by
+  the primary surfaces). Verified live in the dev server: navigating to
+  `/smart-home` triggers a real, separate network request for
+  `SmartHomePage.tsx` that does not happen on initial load; Command
+  Palette navigation to a lazy route (Knowledge) resolves and renders
+  correctly; no new console errors on any page checked.
+- **Test regression this change caused, and how it was fixed**: 18
+  pre-existing tests across 12 `routing.test.tsx`-style files
+  synchronously asserted page content (`screen.getByRole(...)`)
+  immediately after `render()`, which worked when every page was
+  statically imported (available the instant React committed) but broke
+  once those pages became genuinely asynchronous. Fixed by reordering
+  each assertion to `await` the page's own testid first (so the
+  assertion runs against settled DOM, not mid-flight) and adding an
+  explicit, generous `{ timeout: 5000 }` — the default 1000ms `findBy`
+  timeout was demonstrably insufficient for a fresh dynamic `import()`
+  to resolve in this specific test environment's transform/collect
+  overhead, confirmed by re-running the same fixed test in isolation and
+  observing it still needed >1000ms. Two of those files (Notes, Tasks)
+  additionally hit a real, unrelated pre-existing ambiguity once the
+  reordering let the page's data finish loading before the assertion
+  ran: a seeded note/task happens to be titled exactly "Notes"/"Tasks",
+  colliding with the page's own `<h1>` of the same name — fixed by
+  querying `{ level: 1 }` to disambiguate the page title from the card
+  title, not by changing seed data or suppressing the query.
+
+**Reviewed and deliberately not done:** no dependency swaps or upgrades
+(none were measured as a problem — `radix`/`motion` chunk sizes are
+inherent to using Radix Dialog/Tooltip/etc. and Framer Motion, not signs
+of misuse); no manual Rollup `manualChunks` grouping added for the new
+lazy routes (Rollup's automatic per-`import()` chunking already produced
+reasonably-sized, correctly-deduplicated chunks — see the size table
+above — adding manual grouping without a measured problem would be
+optimizing blindly); no virtualization/pagination added to any list (no
+dataset in this frontend is large enough to demonstrate a need for it);
+`Dock` (an unused, unmounted design-system component) was left as-is —
+dead code that isn't reachable by any live route isn't a live performance
+concern; Lighthouse/FCP/LCP/CLS/TBT could not be reliably captured in
+this environment (no real Chrome DevTools performance trace available
+through the browser tool used this session) — noted honestly rather than
+inventing numbers; the production build's own duration grew from 14.42s
+to ~17–37s (varied run to run) because Rollup now renders ~30 chunks
+instead of 4 — an expected, one-time build-time cost in exchange for a
+smaller shipped payload, not a regression in anything a user experiences.
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -2256,16 +2379,21 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–24 were green:
+The latest reported frontend gates for the completed Steps 1–25 were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **557/557 PASS** across 75 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
-  not concurrently with the build, to avoid the resource-contention false-failures observed in earlier steps;
-  one run mid-step reported one timeout on `IntegrationsPage`'s Home Assistant test (unrelated to any file
-  touched this step) under sustained full-suite load, which passed in 3.06s — well under its 5s timeout — in
-  isolation; the same resource-contention pattern documented in earlier steps, not a regression, and the full
-  suite passed cleanly 557/557 on retry)
-  — all 550 Step 0–23 tests still pass, plus 7 net new for Step 24 — Responsive + Accessibility:
+- Vitest: **559/559 PASS** across 76 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
+  not concurrently with the build). Route code-splitting (below) required fixing 18 pre-existing tests across
+  12 files that synchronously asserted now-lazy page content — see the Step 25 write-up above for the exact
+  root cause and fix; this was iteratively verified with several full-suite runs before landing clean.
+  — all 557 Step 0–24 tests still pass (12 files' assertions adjusted for correctness, not weakened — see
+  Step 25 above), plus 2 net new for Step 25 — Performance Engineering:
+  - Performance Engineering (2 in 1 new file): `app/__tests__/routeSplitting.test.tsx` (new, 2 — Home renders
+    synchronously with no Suspense fallback ever shown, proving the primary strip stayed eager; a secondary
+    route (Knowledge) shows the shared `RouteFallback` loading state immediately after render and only then
+    resolves to its real content, proving the route split is genuinely in effect — a behavioral regression
+    guard, not an implementation-detail test)
+  - Was 557/557 across 75 files for the completed Steps 1–24:
   - Responsive + Accessibility (7 across 3 new files): `design-system/__tests__/Modal.test.tsx` (new, 1 —
     `ModalContent` carries both `max-h-[85vh]` and `overflow-y-auto` so a form taller than the viewport
     scrolls internally instead of pushing its footer actions off-screen), `design-system/__tests__/Toast.test.tsx`
@@ -2656,8 +2784,8 @@ These are the next frontend product steps. They should be implemented **one at a
 | 24 | Unified JARVIS Command Center / cross-surface UX | 🟢 Complete (an orchestration/discovery layer over the pre-existing Command Palette — two new command groups, `app/commandCenter.ts`'s `buildSearchGroup`/`buildSceneControlGroup`, composing the existing Universal Search overlay and `SmartHomeService.triggerScene()`; no new page, no second search index, no second execution engine; no Core contract required) |
 | 25 | Final JARVIS visual/interaction polish | 🟢 Complete (a visual-system consistency audit — logo clear-space, glow discipline, popup centering/geometry, typography, spacing — found everything already consistent except one real defect: `Waveform`, relocated into `design-system/patterns/Waveform/` alongside `VoiceOrb`, now reacts to the orb's real `VoiceState` via the newly-exported `stateColor` map; `VoiceOverlay.tsx` now flanks the real orb with the same reactive waves; no feature behavior changed) |
 | 26 | Responsive + accessibility completion | 🟢 Complete (audited all 17 live routes at all 7 required viewports — zero horizontal overflow found; fixed a confirmed Modal viewport-overflow bug, gated `Toast`'s Framer Motion on `useReducedMotion` like every other consumer, and added a skip-to-main-content link; touch targets/Drawer/CommandPalette/SearchOverlay/semantic markup already solid, no change needed — no Core contract required) |
-| 27 | Performance engineering | 🔴 Not Started ← next |
-| 28 | Final frontend QA/release validation | 🔴 Not Started |
+| 27 | Performance engineering | 🟢 Complete (baselined the production build — 624.47 kB main JS chunk, every one of the 18 routed pages statically imported into it regardless of which was visited — then audited render/timer/listener/search/asset performance and found the large majority already correct; the one measured fix: 15 non-primary-nav routes are now `React.lazy` + `Suspense`, cutting the main chunk to 433.52 kB / 125.31 kB gzip, −30.6%/−22.9% — no Core contract required) |
+| 28 | Final frontend QA/release validation | 🔴 Not Started ← next |
 
 > The numbering above is the **current frontend continuation sequence**. The older `FRONTEND_IMPLEMENTATION_ROADMAP.md` uses a different numbering scheme and still contains historical statuses. Do not interpret its older `Not Started` labels as evidence that Steps 1–7 in this document are missing from the source.
 
@@ -2751,10 +2879,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–24.
+8. Do not redo Steps 0–25.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Performance Engineering** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11, item 25 — the next unstarted item now that item 24 Responsive + Accessibility is complete — re-read the architecture docs and verify scope before implementing).
+11. Continue from **Final QA** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11, item 26 — the next unstarted item now that item 25 Performance Engineering is complete — re-read the architecture docs and verify scope before implementing).
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -2767,9 +2895,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 24 — Responsive + Accessibility. A hardening pass, not new product functionality. Audited horizontal-overflow behavior across all 17 live routes at all 7 required viewports (1440×900 down to 375×812) plus Modal/Drawer/CommandPalette/SearchOverlay geometry, touch-target sizing, keyboard activation patterns, and reduced-motion coverage — the large majority was already solid (zero horizontal overflow anywhere; Drawer/CommandPalette/SearchOverlay already height-bound with internal scroll; every interactive card already uses real `role="button"` + `tabIndex={0}` + Enter/Space `onKeyDown`; a global `prefers-reduced-motion` CSS rule already covers every CSS-driven animation/transition app-wide). Three genuine gaps were found and fixed: (1) `ModalContent` had no max-height/scroll, so a tall `size="lg"` form (Automations/Calendar/Tasks/Notes/Device-pairing) could render taller than the viewport with its Save/Cancel buttons entirely unreachable — confirmed live at 375×812; fixed with `max-h-[85vh] overflow-y-auto` on the shared primitive. (2) `Toast` was the one Framer Motion consumer that didn't check `useReducedMotion` (every other one — VoiceOrb, Waveform, ActivityTimeline, ChatPage — already did); fixed via an extracted `toastMotionProps(reduced)` helper. (3) Added a standard skip-to-main-content link in `AppShell` (WCAG 2.4.1) — no skip link existed before. Icon-button/Switch/Modal-close touch targets were reviewed and left as-is: all exceed the WCAG 2.5.8 AA minimum, and the topbar has zero pixel headroom at 375px width to grow them further without reintroducing overflow. This completes roadmap Phase 10 item 24.
+**LAST COMPLETED FRONTEND STEP:** Step 25 — Performance Engineering. A measurement-first pass, not new product functionality. Baselined the production build (624.47 kB main JS chunk / 162.60 kB gzip — every one of the 18 routed pages was statically imported in `App.tsx`, shipping in that one chunk regardless of which page was visited), then audited render performance, timers/listeners, Search/Command Palette, Smart Home realtime, and assets before changing anything — the large majority was already correct (every `getXService()` is a cached singleton; Smart Home's drift interval already starts/stops with subscriber count; every timer/listener found already cleans up; Search fan-out already uses `Promise.all`). The one measured, high-leverage fix: the 15 non-primary-nav routes are now `React.lazy` + `Suspense` (Home/Chat/Automations stay eager), cutting the main chunk to 433.52 kB / 125.31 kB gzip (−30.6%/−22.9%) with each secondary route split into its own small on-demand chunk. This change required fixing 18 pre-existing tests across 12 files whose synchronous assertions no longer matched the new async-render reality — documented in detail in the Step 25 write-up above. This completes roadmap Phase 11 item 25.
 
-**NEXT FRONTEND STEP:** Performance Engineering (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11, item 25 — the next unstarted item now that item 24 Responsive + Accessibility is complete — verify scope before implementing.)
+**NEXT FRONTEND STEP:** Final QA / release validation (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11, item 26 — the next unstarted item now that item 25 Performance Engineering is complete — verify scope before implementing.)
 
 **CURRENT PRODUCT STATE:**
 
@@ -2800,10 +2928,11 @@ A new Emergent workspace/account or coding agent should:
 - Global Command Center: complete as two new Command Palette (`⌘K`) groups — "Search" (bridges to the existing Universal Search overlay) and "Control" (triggers the existing Smart Home scene set via `SmartHomeService.triggerScene()`) — composed via `app/commandCenter.ts`; no new page, no second search index, no second execution engine, no Core contract required for what was built
 - JARVIS Visual Identity: complete as a consistency audit (logo/glow/popup-centering/typography/spacing all already correct) plus one real fix — `Waveform` (now in `design-system/patterns/Waveform/`) reacts to `VoiceOrb`'s real `stateColor`-mapped state with per-state amplitude/speed, shared by both the Home hero and the real Voice overlay; no Core contract required, no feature behavior changed
 - Responsive + Accessibility: complete as a hardening pass across desktop/tablet/mobile viewports, keyboard/focus, semantics, touch targets, and reduced motion — zero horizontal overflow found anywhere (17 routes × 7 required viewports); Modal now caps at `max-h-[85vh] overflow-y-auto` (was a confirmed live bug — tall forms could push their footer actions entirely off-screen and unreachable on mobile); `Toast` now respects `prefers-reduced-motion` like every other Framer Motion consumer; a skip-to-main-content link was added to `AppShell`; Drawer/CommandPalette/SearchOverlay/semantic markup/touch targets were audited and found already solid — no Core contract required, no feature behavior changed
+- Performance Engineering: complete as a measurement-first pass — baseline captured (624.47 kB main JS chunk), audited render/timer/listener/search/asset performance and found the large majority already correct (cached service singletons, self-cleaning timers/listeners, subscriber-gated Smart Home polling, `Promise.all` search fan-out); the one measured fix, route code-splitting via `React.lazy` for the 15 non-primary-nav routes, cut the main chunk to 433.52 kB / 125.31 kB gzip (−30.6%/−22.9%) — no Core contract required, no feature behavior changed
 - Remaining modules: pending
 - Real JARVIS Core integrations: pending separate Core contracts
 
-**DO NOT START PERFORMANCE ENGINEERING automatically when merely reading this document. Wait for explicit approval/instruction.**
+**DO NOT START FINAL QA automatically when merely reading this document. Wait for explicit approval/instruction.**
 
 ---
 

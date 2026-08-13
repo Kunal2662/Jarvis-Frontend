@@ -1,25 +1,37 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './app/AppLayout';
 import { modules } from './app/modules';
 import { Home } from './pages/Home';
 import { ChatPage } from './features/chat/ChatPage';
 import { AutomationsPage } from './features/automations/AutomationsPage';
-import { KnowledgePage } from './features/knowledge/KnowledgePage';
-import { IntelligencePage } from './features/intelligence/IntelligencePage';
-import { AiAppsPage } from './features/aiApps/AiAppsPage';
-import { NotesPage } from './features/notes/NotesPage';
-import { TasksPage } from './features/tasks/TasksPage';
-import { CalendarPage } from './features/calendar/CalendarPage';
-import { FilesPage } from './features/files/FilesPage';
-import { SmartHomePage } from './features/smartHome/SmartHomePage';
-import { DeviceManagementPage } from './features/smartHome/DeviceManagementPage';
-import { IntegrationsPage } from './features/smartHome/IntegrationsPage';
-import { MemoryPage } from './features/memory/MemoryPage';
-import { AgentsPage } from './features/agents/AgentsPage';
-import { DiagnosticsPage } from './features/diagnostics/DiagnosticsPage';
-import { SettingsPage } from './features/settings/SettingsPage';
-import { DesignShowcase } from './pages/DesignShowcase';
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
+import { RouteFallback } from './app/RouteFallback';
+
+// Everything below is a secondary surface (not part of the Home/Chat/Voice/
+// Automations primary strip) — lazy so its code only downloads when someone
+// actually navigates there, instead of shipping in the eagerly-loaded main
+// bundle every session pays for on first load. See docs/FRONTEND_PROGRESS.md
+// Step 25 for the measured before/after.
+const KnowledgePage = lazy(() => import('./features/knowledge/KnowledgePage').then((m) => ({ default: m.KnowledgePage })));
+const IntelligencePage = lazy(() => import('./features/intelligence/IntelligencePage').then((m) => ({ default: m.IntelligencePage })));
+const AiAppsPage = lazy(() => import('./features/aiApps/AiAppsPage').then((m) => ({ default: m.AiAppsPage })));
+const NotesPage = lazy(() => import('./features/notes/NotesPage').then((m) => ({ default: m.NotesPage })));
+const TasksPage = lazy(() => import('./features/tasks/TasksPage').then((m) => ({ default: m.TasksPage })));
+const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then((m) => ({ default: m.CalendarPage })));
+const FilesPage = lazy(() => import('./features/files/FilesPage').then((m) => ({ default: m.FilesPage })));
+const SmartHomePage = lazy(() => import('./features/smartHome/SmartHomePage').then((m) => ({ default: m.SmartHomePage })));
+const DeviceManagementPage = lazy(() => import('./features/smartHome/DeviceManagementPage').then((m) => ({ default: m.DeviceManagementPage })));
+const IntegrationsPage = lazy(() => import('./features/smartHome/IntegrationsPage').then((m) => ({ default: m.IntegrationsPage })));
+const MemoryPage = lazy(() => import('./features/memory/MemoryPage').then((m) => ({ default: m.MemoryPage })));
+const AgentsPage = lazy(() => import('./features/agents/AgentsPage').then((m) => ({ default: m.AgentsPage })));
+const DiagnosticsPage = lazy(() => import('./features/diagnostics/DiagnosticsPage').then((m) => ({ default: m.DiagnosticsPage })));
+const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const DesignShowcase = lazy(() => import('./pages/DesignShowcase').then((m) => ({ default: m.DesignShowcase })));
+
+function lazyRoute(element: ReactNode) {
+  return <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
+}
 
 const PAGES = [
   '/',
@@ -49,21 +61,21 @@ export function App() {
         <Route index element={<Home />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/automations" element={<AutomationsPage />} />
-        <Route path="/knowledge" element={<KnowledgePage />} />
-        <Route path="/intelligence" element={<IntelligencePage />} />
-        <Route path="/apps" element={<AiAppsPage />} />
-        <Route path="/notes" element={<NotesPage />} />
-        <Route path="/tasks" element={<TasksPage />} />
-        <Route path="/calendar" element={<CalendarPage />} />
-        <Route path="/files" element={<FilesPage />} />
-        <Route path="/smart-home" element={<SmartHomePage />} />
-        <Route path="/smart-home/devices" element={<DeviceManagementPage />} />
-        <Route path="/smart-home/integrations" element={<IntegrationsPage />} />
-        <Route path="/memory" element={<MemoryPage />} />
-        <Route path="/agents" element={<AgentsPage />} />
-        <Route path="/diagnostics" element={<DiagnosticsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/design" element={<DesignShowcase />} />
+        <Route path="/knowledge" element={lazyRoute(<KnowledgePage />)} />
+        <Route path="/intelligence" element={lazyRoute(<IntelligencePage />)} />
+        <Route path="/apps" element={lazyRoute(<AiAppsPage />)} />
+        <Route path="/notes" element={lazyRoute(<NotesPage />)} />
+        <Route path="/tasks" element={lazyRoute(<TasksPage />)} />
+        <Route path="/calendar" element={lazyRoute(<CalendarPage />)} />
+        <Route path="/files" element={lazyRoute(<FilesPage />)} />
+        <Route path="/smart-home" element={lazyRoute(<SmartHomePage />)} />
+        <Route path="/smart-home/devices" element={lazyRoute(<DeviceManagementPage />)} />
+        <Route path="/smart-home/integrations" element={lazyRoute(<IntegrationsPage />)} />
+        <Route path="/memory" element={lazyRoute(<MemoryPage />)} />
+        <Route path="/agents" element={lazyRoute(<AgentsPage />)} />
+        <Route path="/diagnostics" element={lazyRoute(<DiagnosticsPage />)} />
+        <Route path="/settings" element={lazyRoute(<SettingsPage />)} />
+        <Route path="/design" element={lazyRoute(<DesignShowcase />)} />
 
         {/* Placeholder surfaces (Home/Chat/Voice widgets ship in later phases). */}
         {modules

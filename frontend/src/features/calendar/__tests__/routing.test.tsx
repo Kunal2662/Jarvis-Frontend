@@ -39,14 +39,17 @@ describe('Calendar routing + nav', () => {
 
   it('navigating to /calendar renders the Calendar page (not the "coming soon" placeholder)', async () => {
     renderApp('/calendar');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('calendar-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Calendar' })).toBeInTheDocument();
-    await screen.findByTestId('calendar-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar', async () => {
     renderApp('/calendar');
-    await screen.findByTestId('calendar-page');
+    await screen.findByTestId('calendar-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

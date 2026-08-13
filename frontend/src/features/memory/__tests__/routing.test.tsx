@@ -40,8 +40,11 @@ describe('Memory routing + nav', () => {
 
   it('navigating to /memory renders the Memory page directly (no longer redirects to Settings)', async () => {
     renderApp('/memory');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('memory-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Memory' })).toBeInTheDocument();
-    await screen.findByTestId('memory-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
     // The old v1 /memory → /settings redirect must be gone now that Memory
     // has its own real page — Settings no longer lists /memory among its
@@ -52,7 +55,7 @@ describe('Memory routing + nav', () => {
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar, from /memory', async () => {
     renderApp('/memory');
-    await screen.findByTestId('memory-page');
+    await screen.findByTestId('memory-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

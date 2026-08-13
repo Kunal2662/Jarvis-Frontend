@@ -40,8 +40,11 @@ describe('Agents routing + nav', () => {
 
   it('navigating to /agents renders the Agents page directly (no longer redirects to Chat)', async () => {
     renderApp('/agents');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('agents-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
-    await screen.findByTestId('agents-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
     // The old v1 /agents → /chat redirect must be gone now that Agents has
     // its own real page — Chat no longer lists /agents among its
@@ -52,7 +55,7 @@ describe('Agents routing + nav', () => {
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar, from /agents', async () => {
     renderApp('/agents');
-    await screen.findByTestId('agents-page');
+    await screen.findByTestId('agents-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

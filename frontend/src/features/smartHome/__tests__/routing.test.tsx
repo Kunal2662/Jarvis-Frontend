@@ -40,14 +40,17 @@ describe('Smart Home routing + nav', () => {
 
   it('navigating to /smart-home renders the Smart Home page (not the "coming soon" placeholder)', async () => {
     renderApp('/smart-home');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('smart-home-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Smart Home' })).toBeInTheDocument();
-    await screen.findByTestId('smart-home-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar, from /smart-home', async () => {
     renderApp('/smart-home');
-    await screen.findByTestId('smart-home-page');
+    await screen.findByTestId('smart-home-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
@@ -56,15 +59,21 @@ describe('Smart Home routing + nav', () => {
 
   it('navigating to /smart-home/devices renders Device Management (not the "coming soon" placeholder)', async () => {
     renderApp('/smart-home/devices');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('device-management-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Device Management' })).toBeInTheDocument();
-    await screen.findByTestId('device-management-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
   it('navigating to /smart-home/integrations renders Integrations (not the "coming soon" placeholder)', async () => {
     renderApp('/smart-home/integrations');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('integrations-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Integrations' })).toBeInTheDocument();
-    await screen.findByTestId('integrations-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 });

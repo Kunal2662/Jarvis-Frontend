@@ -39,14 +39,17 @@ describe('Knowledge routing + nav', () => {
 
   it('navigating to /knowledge renders the Knowledge page (not the "coming soon" placeholder)', async () => {
     renderApp('/knowledge');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('knowledge-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Knowledge' })).toBeInTheDocument();
-    await screen.findByTestId('knowledge-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar', async () => {
     renderApp('/knowledge');
-    await screen.findByTestId('knowledge-page');
+    await screen.findByTestId('knowledge-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

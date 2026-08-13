@@ -45,7 +45,8 @@ describe('Notifications setting gates AppLayout', () => {
     await user.keyboard('{Escape}');
 
     await user.click(screen.getByTestId('open-settings'));
-    await screen.findByTestId('settings-page');
+    // Generous timeout: Settings is now lazy-loaded (Step 25 route splitting).
+    await screen.findByTestId('settings-page', {}, { timeout: 5000 });
     await user.click(screen.getByTestId('settings-tab-notifications'));
     await user.click(await screen.findByTestId('settings-notifications-toggle'));
     // The Switch is swapped for a spinner while the request is in flight

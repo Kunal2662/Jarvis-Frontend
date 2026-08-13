@@ -39,14 +39,17 @@ describe('Files routing + nav', () => {
 
   it('navigating to /files renders the Files page (not the "coming soon" placeholder)', async () => {
     renderApp('/files');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('files-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Files' })).toBeInTheDocument();
-    await screen.findByTestId('files-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar', async () => {
     renderApp('/files');
-    await screen.findByTestId('files-page');
+    await screen.findByTestId('files-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

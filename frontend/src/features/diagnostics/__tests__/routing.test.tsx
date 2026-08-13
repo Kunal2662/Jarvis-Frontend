@@ -40,8 +40,11 @@ describe('Diagnostics routing + nav', () => {
 
   it('navigating to /diagnostics renders the Diagnostics page directly', async () => {
     renderApp('/diagnostics');
+    // Generous timeout: this page is now lazy-loaded (Step 25 route
+    // splitting), so a fresh dynamic import() can legitimately take longer
+    // than the default 1000ms findBy timeout under load.
+    await screen.findByTestId('diagnostics-page', {}, { timeout: 5000 });
     expect(screen.getByRole('heading', { name: 'Diagnostics' })).toBeInTheDocument();
-    await screen.findByTestId('diagnostics-page');
     expect(screen.queryByText('is coming soon')).not.toBeInTheDocument();
   });
 
@@ -58,7 +61,7 @@ describe('Diagnostics routing + nav', () => {
 
   it('the desktop top nav still shows Home / Chat / Voice / Automations with no sidebar, from /diagnostics', async () => {
     renderApp('/diagnostics');
-    await screen.findByTestId('diagnostics-page');
+    await screen.findByTestId('diagnostics-page', {}, { timeout: 5000 });
     for (const label of ['Home', 'Chat', 'Voice', 'Automations']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }

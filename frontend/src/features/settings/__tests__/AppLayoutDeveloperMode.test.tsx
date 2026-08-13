@@ -52,7 +52,8 @@ describe('Developer Mode setting gates the Command Palette', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument());
 
     await user.click(screen.getByTestId('open-settings'));
-    await screen.findByTestId('settings-page');
+    // Generous timeout: Settings is now lazy-loaded (Step 25 route splitting).
+    await screen.findByTestId('settings-page', {}, { timeout: 5000 });
     await user.click(screen.getByTestId('settings-tab-developer'));
     await user.click(await screen.findByTestId('settings-developer-mode-toggle'));
     // The Switch is swapped for a spinner while the request is in flight
@@ -72,7 +73,10 @@ describe('Developer Mode setting gates the Command Palette', () => {
 
   it('/design is still reachable by direct navigation even when Developer Mode is off (discoverability only, never a route block)', async () => {
     renderApp('/design');
-    expect(await screen.findByRole('heading', { name: /design system/i })).toBeInTheDocument();
+    // Generous timeout: Design System is now lazy-loaded (Step 25 route splitting).
+    expect(
+      await screen.findByRole('heading', { name: /design system/i }, { timeout: 5000 }),
+    ).toBeInTheDocument();
   });
 
   it('turning Developer Mode back off hides the Design System page from ⌘K again', async () => {
@@ -80,7 +84,8 @@ describe('Developer Mode setting gates the Command Palette', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByTestId('open-settings'));
-    await screen.findByTestId('settings-page');
+    // Generous timeout: Settings is now lazy-loaded (Step 25 route splitting).
+    await screen.findByTestId('settings-page', {}, { timeout: 5000 });
     await user.click(screen.getByTestId('settings-tab-developer'));
     await user.click(await screen.findByTestId('settings-developer-mode-toggle'));
     await waitFor(() =>

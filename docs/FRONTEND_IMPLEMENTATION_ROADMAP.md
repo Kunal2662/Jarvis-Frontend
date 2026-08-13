@@ -393,12 +393,28 @@ further without reintroducing overflow. Details in
 ## Phase 11 — Release Quality
 
 ### 25. Performance Engineering
-**Status:** 🔴 Not Started ← next
-
-60 FPS interaction target, lazy loading, code splitting, efficient streaming, low CPU/RAM and fast startup/navigation.
+**Status:** 🟢 Complete (frontend Step 25) — a measurement-first pass, not
+new product functionality. Baselined the production build (624.47 kB main
+JS chunk / 162.60 kB gzip — every one of the 18 routed pages was statically
+imported in `App.tsx`, so all of them shipped in that one chunk regardless
+of which page was actually visited), then audited render performance,
+timers/listeners, Search/Command Palette, Smart Home realtime, and asset
+handling before changing anything. The audit found the large majority
+already correct: every `getXService()` factory is a cached singleton, not
+re-instantiated per render; Smart Home's simulated-drift interval already
+starts only with an active subscriber and stops with the last unsubscribe;
+every `setTimeout`/`addEventListener` found already cleans up in its
+effect's return; Universal Search's category fan-out already uses
+`Promise.all` (fixed in Step 12). The one measured, high-leverage
+optimization: the 15 non-primary-nav routes (everything except Home/Chat/
+Automations) are now `React.lazy` + `Suspense`, cutting the main chunk to
+433.52 kB / 125.31 kB gzip (−30.6% / −22.9% gzip) with each secondary
+route's code now downloading only when actually visited. No Core contract
+required, no feature behavior changed. Details in
+`docs/FRONTEND_PROGRESS.md` Step 25.
 
 ### 26. Final QA
-**Status:** 🔴 Not Started
+**Status:** 🔴 Not Started ← next
 
 Typecheck, lint, tests, production build, API/SSE/WebSocket failure handling, responsive checks and regression validation.
 

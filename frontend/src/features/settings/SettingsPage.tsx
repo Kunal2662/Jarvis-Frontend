@@ -97,7 +97,7 @@ export function SettingsPage() {
       >
         <div data-testid="settings-page" className="pb-16">
           <Tabs defaultValue="appearance">
-            <div className="overflow-x-auto">
+            <div className="scrollbar-none overflow-x-auto">
               <TabsList variant="line" className="flex-nowrap">
                 {TABS.map((tab) => (
                   <TabsTrigger key={tab.value} value={tab.value} data-testid={`settings-tab-${tab.value}`}>

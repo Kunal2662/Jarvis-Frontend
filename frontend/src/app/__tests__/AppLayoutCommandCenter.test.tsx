@@ -34,8 +34,8 @@ function openCommandPalette() {
 /**
  * Global Command Center (roadmap item 22) — real end-to-end coverage of the
  * enhanced Command Palette: the new "Search" bridge and "Control" (Smart
- * Home scene) groups sit alongside the pre-existing "Go to"/"Coming soon"/
- * "Actions" groups without disturbing them. Mirrors
+ * Home scene) groups sit alongside the pre-existing "Go to"/"Actions"
+ * groups without disturbing them. Mirrors
  * AppLayoutDeveloperMode.test.tsx / AppLayoutNotifications.test.tsx.
  */
 describe('Global Command Center (enhanced Command Palette)', () => {
@@ -43,7 +43,7 @@ describe('Global Command Center (enhanced Command Palette)', () => {
     localStorage.clear();
   });
 
-  it('renders the existing Go to / Coming soon / Actions groups plus the new Search and Control groups', async () => {
+  it('renders the existing Go to / Actions groups plus the new Search and Control groups', async () => {
     renderApp();
     openCommandPalette();
     const dialog = await screen.findByRole('dialog', { name: 'Command palette' });
@@ -57,6 +57,18 @@ describe('Global Command Center (enhanced Command Palette)', () => {
     expect(within(dialog).getByText('Good Night')).toBeInTheDocument();
     expect(within(dialog).getByText('Movie Time')).toBeInTheDocument();
     expect(within(dialog).getByText('Away Mode')).toBeInTheDocument();
+  });
+
+  it('never shows an empty "Coming soon" heading — every module is live as of Step 16', async () => {
+    renderApp();
+    openCommandPalette();
+    const dialog = await screen.findByRole('dialog', { name: 'Command palette' });
+    await within(dialog).findByText('Good Night');
+
+    // Regression guard: comingSoonModules is empty today, so the group
+    // must be omitted entirely rather than rendered as a heading with
+    // zero items underneath it (a real bug found in Step 26 QA).
+    expect(within(dialog).queryByText('Coming soon')).not.toBeInTheDocument();
   });
 
   it('filtering the palette to a scene name shows only that Control command (search/filtering)', async () => {

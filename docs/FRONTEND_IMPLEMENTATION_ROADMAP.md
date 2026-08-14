@@ -414,9 +414,45 @@ required, no feature behavior changed. Details in
 `docs/FRONTEND_PROGRESS.md` Step 25.
 
 ### 26. Final QA
-**Status:** 🔴 Not Started ← next
+**Status:** 🟢 Complete (frontend Step 26) — **the final planned frontend
+milestone. The frontend feature roadmap is FROZEN after this step.** A
+full production-readiness pass, not new functionality: complete route
+inventory (18 routes + Voice's overlay action, all 17 `modules.tsx`
+entries confirmed `live`/`ready`); functional/responsive (all 7 required
+viewports, zero overflow)/accessibility/visual-identity/performance
+regression against Steps 23–25's baselines, all held; a full
+security/privacy sweep (no hardcoded secrets, credential fields
+write-only and never persisted/displayed/logged/searched/diagnosed); a
+Core-boundary audit enumerating all 19 service seams against their
+`CORE_*_CONTRACT_REQUIRED.md` docs. Live QA surfaced and fixed four real,
+previously-undiscovered defects: (1) the Command Palette rendered a
+visible "Coming soon" heading with zero items underneath once every
+module reached `live` status — now omitted when empty, matching the
+Control group's existing pattern; (2) Modal/CommandPalette/SearchOverlay's
+shared `scale-in` open animation only animated `transform: scale(...)`,
+which silently overrode their `-translate-x-1/2 -translate-y-1/2`
+centering for the animation's full 220ms — every popup opened anchored at
+its top-left corner to viewport-center and grew toward the bottom-right
+instead of expanding from true center, snapping to correct position only
+once the animation ended; fixed with a new `centered-scale-in` keyframe
+that carries the translate through every frame (kept as a separate
+animation, not a shared-keyframe edit, since 4 other components reuse
+`scale-in` with Radix's own popper-positioning transform and would have
+broken); (3) the Command Palette's search input had no explicit
+focus-ring suppression, unlike Universal Search's identical input, which
+already zeroes it explicitly; (4) the Settings page's horizontally-
+scrolling tab strip showed a visible native scrollbar — hidden via the
+project's existing `.scrollbar-none` utility (already used by the
+primary top-bar nav) while preserving the underlying scroll. Two new
+handoff documents were produced:
+`docs/FRONTEND_CORE_INTEGRATION_HANDOFF.md` and
+`docs/FRONTEND_TECHNICAL_DEBT_REGISTER.md`. Details in
+`docs/FRONTEND_PROGRESS.md` Step 26.
 
-Typecheck, lint, tests, production build, API/SSE/WebSocket failure handling, responsive checks and regression validation.
+**Frontend feature roadmap frozen after Step 26.** Future frontend
+changes should be treated as Core integration, contract implementation,
+security/reliability work, or bug fixes — not new frontend roadmap
+milestones — unless explicitly approved.
 
 ## Implementation rule
 

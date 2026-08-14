@@ -150,6 +150,19 @@ export default {
           from: { opacity: '0', transform: 'scale(0.97)' },
           to: { opacity: '1', transform: 'scale(1)' },
         },
+        // For dialogs centered via `left-1/2 top-1/2 -translate-x-1/2
+        // -translate-y-1/2`: `transform` is a single property, so an
+        // animation that only sets `scale(...)` overrides that centering
+        // translate for the animation's whole duration, not just its
+        // endpoints — the dialog renders anchored at its top-left corner
+        // to the viewport center and grows toward the bottom-right instead
+        // of expanding symmetrically from true center, only snapping to
+        // the correct centered position once the animation ends. This
+        // keyframe carries the translate through every frame instead.
+        'centered-scale-in': {
+          from: { opacity: '0', transform: 'translate(-50%, -50%) scale(0.97)' },
+          to: { opacity: '1', transform: 'translate(-50%, -50%) scale(1)' },
+        },
         'slide-in-right': {
           from: { transform: 'translateX(100%)' },
           to: { transform: 'translateX(0)' },
@@ -176,6 +189,7 @@ export default {
       animation: {
         'fade-in': 'fade-in 220ms cubic-bezier(0.05, 0.7, 0.1, 1)',
         'scale-in': 'scale-in 220ms cubic-bezier(0.05, 0.7, 0.1, 1)',
+        'centered-scale-in': 'centered-scale-in 220ms cubic-bezier(0.05, 0.7, 0.1, 1)',
         'slide-in-right': 'slide-in-right 320ms cubic-bezier(0.05, 0.7, 0.1, 1)',
         'slide-in-left': 'slide-in-left 320ms cubic-bezier(0.05, 0.7, 0.1, 1)',
         shimmer: 'shimmer 1.8s infinite',

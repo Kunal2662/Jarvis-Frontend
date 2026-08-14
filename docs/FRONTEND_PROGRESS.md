@@ -2168,6 +2168,157 @@ smaller shipped payload, not a regression in anything a user experiences.
 
 ---
 
+## Step 26 — Final QA + Frontend Freeze
+
+**Status: COMPLETE — the final planned frontend milestone. The frontend
+feature roadmap is FROZEN after this step. No new product functionality
+was added; this is production-readiness validation, hardening, and
+documentation.**
+
+Per this step's own instructions: a complete route inventory was built
+directly from `app/modules.tsx` and `App.tsx` (not assumed from older
+docs), then functional/responsive/accessibility/visual-identity/
+performance regression was run against Steps 23–25's established
+baselines, followed by a security/privacy audit and a Core-boundary
+audit, before any documentation was finalized.
+
+**Route inventory (repository-verified):** all 17 `app/modules.tsx`
+entries are `status: 'live'` / `ready: true` — no `planned` placeholder
+remains anywhere. 18 routed pages (`App.tsx`) + Voice (an always-mounted
+overlay action, no route of its own) + 6 legacy redirects
+(`/automation`, `/browser`, `/plugins`, `/projects`, `/performance`,
+`/google`, `/microsoft`) + a catch-all `*` → `/`. Matches every surface
+named in the roadmap's Step 26 checklist.
+
+**Regression results — all held:**
+
+- **Functional**: Home/Chat/Voice/Automations, Smart Home/Device
+  Management/Integrations, Agents, Memory/Knowledge/Intelligence,
+  Settings/Developer Mode, Diagnostics, Universal Search, and Command
+  Palette all verified live — navigation, a representative Modal
+  (Automations create form) and Drawer (Automation detail) open/close
+  correctly, Escape closes both, no console errors beyond the
+  already-known environment/tooling noise (Vite HMR websocket messages
+  in the automated browser tool; a pre-existing `Overlay` forwardRef
+  warning that predates Step 24).
+- **Responsive**: all 7 required viewports (1440×900, 1280×800,
+  1024×768, 834×1194, 768×1024, 390×844, 375×812) re-scanned across all
+  18 routes via the same automated overflow scanner used in Step 24 —
+  zero horizontal overflow anywhere, confirming the Step 24 baseline
+  held.
+- **Accessibility**: skip-to-main-content link present and correctly
+  targets a focusable `<main>` (`tabindex="-1"`); Modal/Drawer
+  open/close/Escape verified live; reduced-motion CSS blanket rule and
+  per-component `useReducedMotion()` checks (VoiceOrb, Waveform,
+  ActivityTimeline, ChatPage, Toast) confirmed still in source, unchanged
+  since Step 24/25.
+- **Visual identity**: `VoiceOrb`'s `stateColor` export, `Waveform`'s
+  full-width layout, and `ModalContent`'s `max-h-[85vh]`/`overflow-y-auto`
+  all confirmed still present in source (git history shows no commits
+  touching these files since Steps 23/24 landed, and a direct read
+  confirms each is intact).
+- **Performance**: rebuilt production bundle — main chunk 433.66 kB /
+  125.34 kB gzip, essentially identical to Step 25's measured 433.52 kB /
+  125.31 kB gzip (the +0.1 kB is the new `centered-scale-in` keyframe CSS
+  added this step, see below). All ~30 lazy chunks still present and
+  still lazy; Home/Chat/Automations still eager.
+
+**Security/privacy audit:** no hardcoded secrets/API keys/tokens found
+anywhere in `src/` (keyword sweep plus a pattern sweep for common
+provider-key shapes). The one credential-shaped UI
+(`ConnectorDetailDrawer.tsx`'s Home Assistant/MQTT "secret" field) is
+`type="password"`, validated non-empty, passed once to the mock adapter,
+and cleared from local state immediately after submit — never stored,
+logged, read back, or displayed again. No secret/token/credential term
+appears anywhere in Diagnostics or Search source. No `.env` file exists
+in the repo; `.env.local` is gitignored.
+
+**Core boundary audit:** enumerated all 19 service seams
+(`VITE_<FEATURE>_BACKEND` env vars, code-verified via grep, cross-checked
+against all 18 `docs/CORE_*_CONTRACT_REQUIRED.md` files) — every one
+defaults to `mock` except Voice (`local`, real browser Web Speech API)
+and Chat (`dev`, the existing development SSE endpoint, not a Core
+contract). Full detail, including which Core milestones are verified vs.
+pending, is in the new handoff document (below) rather than duplicated
+here.
+
+**Four real defects found and fixed during live QA** (not pre-planned —
+surfaced by actually exercising the app, plus user-reported visual
+issues addressed in the same pass):
+
+1. **Command Palette showed an empty "Coming soon" heading.** Every
+   module reached `status: 'live'` by Step 16, so `comingSoonModules` has
+   been empty ever since — but `AppLayout.tsx`'s `commandGroups` always
+   rendered the group object regardless, and cmdk renders a heading for a
+   group with zero items rather than hiding it. A user opening ⌘K saw a
+   "COMING SOON" section header with nothing under it. Fixed by omitting
+   the group entirely when `comingSoonModules.length === 0`, matching the
+   exact guard the neighboring `Control` group already used for the same
+   reason. A new regression test
+   (`app/__tests__/AppLayoutCommandCenter.test.tsx`) asserts the heading
+   is absent; the pre-existing test's name/comment, which claimed
+   "Coming soon" rendered without ever actually asserting it, was
+   corrected too.
+2. **Modal/CommandPalette/SearchOverlay's open animation rendered
+   off-center for its full 220ms.** All three center themselves via
+   `left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`, then animate
+   with `data-[state=open]:animate-scale-in`. Since CSS `transform` is a
+   single property, the `scale-in` keyframes (which only set
+   `transform: scale(...)`) silently override that centering translate
+   for the animation's entire duration — the dialog rendered with its
+   top-left corner anchored at viewport-center and grew toward the
+   bottom-right, only snapping to the correct centered position once the
+   220ms animation finished. Reported by the user as popups appearing to
+   "come from left or right, not center." Fixed with a new
+   `centered-scale-in` keyframe (`tailwind.config.js`) that bakes
+   `translate(-50%, -50%)` into both the `from` and `to` states so the
+   translate is carried through every animation frame. Deliberately kept
+   as a *separate* animation rather than editing the shared `scale-in`
+   keyframe: 4 other components (`Tooltip`, `Select`, `Popover`,
+   `Dropdown`) also use `scale-in` but are positioned by Radix's own
+   popper transform, not this translate combo, and would have broken if
+   the shared keyframe changed.
+3. **Command Palette's search input had no explicit focus-ring
+   suppression.** Universal Search's identical input already carries
+   `outline-none ring-0 focus:outline-none focus:ring-0
+   focus-visible:outline-none focus-visible:ring-0`; the Command Palette
+   one only had bare `outline-none`. Reported by the user as a visible
+   blue ring on focus. Aligned to the same explicit pattern.
+4. **Settings' horizontally-scrolling tab strip showed a visible native
+   scrollbar.** Reported by the user. Fixed by applying the project's
+   existing `.scrollbar-none` utility (`index.css`, already used by the
+   primary top-bar nav for the identical purpose) — hides the
+   track/thumb while leaving the element genuinely scrollable, confirmed
+   live (`scrollWidth > clientWidth` still true after the fix).
+
+**Two new handoff documents produced** (both repository-verified, no
+invented Core endpoints):
+
+- `docs/FRONTEND_CORE_INTEGRATION_HANDOFF.md` — architecture summary, the
+  complete 19-seam service/adapter table, verified vs. pending Core
+  contracts, per-domain dependency notes (auth, RBAC, credentials,
+  agents, automations, memory/knowledge, Smart Home, realtime,
+  diagnostics, Android/Home — explicitly out of scope), security
+  requirements, and a recommended integration order.
+- `docs/FRONTEND_TECHNICAL_DEBT_REGISTER.md` — classified CRITICAL/HIGH/
+  MEDIUM/LOW/INTENTIONAL. Nothing was found at CRITICAL or HIGH. MEDIUM:
+  sub-44px touch targets (deliberately left in Step 24, no headroom to
+  grow them without reintroducing overflow) and the expected build-time
+  growth from route-splitting. LOW: the unused `Surface: 'contextual'`
+  type member, the unmounted `Dock` component, no captured Lighthouse/
+  FCP/LCP numbers, and the one pre-existing `.storybook/preview.tsx`
+  lint error. INTENTIONAL/WAITING FOR CORE: every mock adapter, by
+  design.
+
+**Final quality gates** (typecheck → full suite → lint → build,
+sequential, matching every prior step's discipline): typecheck clean;
+full suite 560/560 across 76 files (559 carried over from Step 25 + 1
+new Command Palette regression test); lint clean except the
+already-documented, deliberately-preserved `.storybook/preview.tsx`
+issue; production build succeeds, main chunk 433.66 kB / 125.34 kB gzip.
+
+---
+
 ## 4. Current Architecture Pattern
 
 The frontend is intentionally structured so UI does not need to be redesigned when JARVIS Core becomes available.
@@ -2379,13 +2530,20 @@ Important implemented areas in this checkpoint include:
 
 ## 6. Testing / Quality State
 
-The latest reported frontend gates for the completed Steps 1–25 were green:
+The latest reported frontend gates for the completed Steps 1–26 (**the
+final planned frontend milestone — the roadmap is frozen after Step 26**)
+were green:
 
 - TypeScript/typecheck: **PASS** (`tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit`)
-- Vitest: **559/559 PASS** across 76 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
-  not concurrently with the build). Route code-splitting (below) required fixing 18 pre-existing tests across
-  12 files that synchronously asserted now-lazy page content — see the Step 25 write-up above for the exact
-  root cause and fix; this was iteratively verified with several full-suite runs before landing clean.
+- Vitest: **560/560 PASS** across 76 files, deterministic (`npx vitest run --no-file-parallelism`, run alone —
+  not concurrently with the build or lint). Step 26 added one new regression test
+  (`app/__tests__/AppLayoutCommandCenter.test.tsx` — asserts the Command Palette never shows an empty
+  "Coming soon" heading, guarding the real bug found and fixed during this step's live QA) and fixed a
+  pre-existing test whose name/comment claimed "Coming soon" rendered without ever actually asserting it.
+  Lint: clean except the already-documented, deliberately-preserved `.storybook/preview.tsx` issue.
+  Production build: succeeds, main chunk 433.66 kB / 125.34 kB gzip — matches Step 25's baseline (433.52 kB /
+  125.31 kB gzip) to within 0.1 kB (the new `centered-scale-in` keyframe CSS).
+  - Was 559/559 across 76 files for the completed Steps 1–25:
   — all 557 Step 0–24 tests still pass (12 files' assertions adjusted for correctness, not weakened — see
   Step 25 above), plus 2 net new for Step 25 — Performance Engineering:
   - Performance Engineering (2 in 1 new file): `app/__tests__/routeSplitting.test.tsx` (new, 2 — Home renders
@@ -2785,13 +2943,27 @@ These are the next frontend product steps. They should be implemented **one at a
 | 25 | Final JARVIS visual/interaction polish | 🟢 Complete (a visual-system consistency audit — logo clear-space, glow discipline, popup centering/geometry, typography, spacing — found everything already consistent except one real defect: `Waveform`, relocated into `design-system/patterns/Waveform/` alongside `VoiceOrb`, now reacts to the orb's real `VoiceState` via the newly-exported `stateColor` map; `VoiceOverlay.tsx` now flanks the real orb with the same reactive waves; no feature behavior changed) |
 | 26 | Responsive + accessibility completion | 🟢 Complete (audited all 17 live routes at all 7 required viewports — zero horizontal overflow found; fixed a confirmed Modal viewport-overflow bug, gated `Toast`'s Framer Motion on `useReducedMotion` like every other consumer, and added a skip-to-main-content link; touch targets/Drawer/CommandPalette/SearchOverlay/semantic markup already solid, no change needed — no Core contract required) |
 | 27 | Performance engineering | 🟢 Complete (baselined the production build — 624.47 kB main JS chunk, every one of the 18 routed pages statically imported into it regardless of which was visited — then audited render/timer/listener/search/asset performance and found the large majority already correct; the one measured fix: 15 non-primary-nav routes are now `React.lazy` + `Suspense`, cutting the main chunk to 433.52 kB / 125.31 kB gzip, −30.6%/−22.9% — no Core contract required) |
-| 28 | Final frontend QA/release validation | 🔴 Not Started ← next |
+| 28 | Final frontend QA/release validation | 🟢 Complete (the final planned frontend milestone — complete route inventory, functional/responsive/accessibility/visual-identity/performance regression against Steps 23–25's baselines, all held; security/privacy audit clean; Core-boundary audit of all 19 service seams; four real defects found and fixed via live QA — an empty "Coming soon" Command Palette group, an off-center popup-open animation, a missing focus-ring suppression, a visible Settings tab scrollbar; two new handoff docs — `FRONTEND_CORE_INTEGRATION_HANDOFF.md`, `FRONTEND_TECHNICAL_DEBT_REGISTER.md`) |
+
+**The frontend feature roadmap is FROZEN after row 28 (Step 26). There is
+no row 29 — no further frontend product milestone is planned.** Future
+frontend changes should be treated as Core integration, contract
+implementation, security/reliability work, or bug fixes, not new roadmap
+items, unless explicitly approved.
 
 > The numbering above is the **current frontend continuation sequence**. The older `FRONTEND_IMPLEMENTATION_ROADMAP.md` uses a different numbering scheme and still contains historical statuses. Do not interpret its older `Not Started` labels as evidence that Steps 1–7 in this document are missing from the source.
 
 ---
 
 ## 8. Core Integration Dependencies
+
+**See `docs/FRONTEND_CORE_INTEGRATION_HANDOFF.md` (added Step 26) for the
+complete, current, repository-verified handoff** — the full 19-seam
+service/adapter table, verified vs. pending Core contracts per milestone,
+authentication/RBAC/credential/agent/automation/memory/Smart Home/
+realtime/diagnostics dependency notes, security requirements, and a
+recommended integration order. The list below is kept for historical
+continuity but the handoff doc is now the authoritative source.
 
 The following are intentionally pending real JARVIS Core contracts:
 
@@ -2879,10 +3051,10 @@ A new Emergent workspace/account or coding agent should:
 5. Read `docs/JARVIS_CORE_FRONTEND_MAPPING.md`.
 6. Read `docs/FRONTEND_CONTINUATION_GUIDE.md`.
 7. Inspect git status before modifying anything.
-8. Do not redo Steps 0–25.
+8. Do not redo Steps 0–26.
 9. Keep the primary navigation as **Home · Chat · Voice · Automations** unless explicitly instructed otherwise.
 10. Do not restore the sidebar.
-11. Continue from **Final QA** (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11, item 26 — the next unstarted item now that item 25 Performance Engineering is complete — re-read the architecture docs and verify scope before implementing).
+11. **The frontend feature roadmap is frozen after Step 26 — do not start a Step 27 frontend milestone.** Read `docs/FRONTEND_CORE_INTEGRATION_HANDOFF.md` for what the next phase (Core completion + ecosystem integration) actually needs; only reopen the frontend roadmap if the user explicitly approves it.
 12. Build frontend features independently using mock/local adapters when Core is unavailable.
 13. Do not wait for Claude Code for frontend-only work.
 14. Do not invent JARVIS Core endpoints, event schemas, authentication, or backend behavior.
@@ -2895,9 +3067,9 @@ A new Emergent workspace/account or coding agent should:
 
 ## 11. Current Stop Point
 
-**LAST COMPLETED FRONTEND STEP:** Step 25 — Performance Engineering. A measurement-first pass, not new product functionality. Baselined the production build (624.47 kB main JS chunk / 162.60 kB gzip — every one of the 18 routed pages was statically imported in `App.tsx`, shipping in that one chunk regardless of which page was visited), then audited render performance, timers/listeners, Search/Command Palette, Smart Home realtime, and assets before changing anything — the large majority was already correct (every `getXService()` is a cached singleton; Smart Home's drift interval already starts/stops with subscriber count; every timer/listener found already cleans up; Search fan-out already uses `Promise.all`). The one measured, high-leverage fix: the 15 non-primary-nav routes are now `React.lazy` + `Suspense` (Home/Chat/Automations stay eager), cutting the main chunk to 433.52 kB / 125.31 kB gzip (−30.6%/−22.9%) with each secondary route split into its own small on-demand chunk. This change required fixing 18 pre-existing tests across 12 files whose synchronous assertions no longer matched the new async-render reality — documented in detail in the Step 25 write-up above. This completes roadmap Phase 11 item 25.
+**LAST COMPLETED FRONTEND STEP:** Step 26 — Final QA + Frontend Freeze. **This is the final planned frontend milestone. The frontend feature roadmap is FROZEN after this step.** A production-readiness pass, not new functionality: a repository-verified complete route inventory (18 routes + Voice's overlay action, all 17 `modules.tsx` entries `live`/`ready`); functional/responsive (all 7 required viewports, 18 routes, zero overflow)/accessibility/visual-identity/performance regression against Steps 23–25's baselines — all held; a security/privacy audit (no hardcoded secrets anywhere; the one credential-shaped UI is write-only and never persisted/logged/displayed/searched/diagnosed); a Core-boundary audit of all 19 service seams cross-checked against their `CORE_*_CONTRACT_REQUIRED.md` docs. Live QA found and fixed four real defects: an empty "Coming soon" Command Palette heading (every module reached `live` by Step 16 but the group was never omitted when empty); Modal/CommandPalette/SearchOverlay's open animation rendering off-center for its full 220ms (the `scale-in` keyframes overrode the centering translate — user-reported as popups "coming from left or right, not center," fixed with a new `centered-scale-in` keyframe that carries the translate through every frame); a missing focus-ring suppression on the Command Palette's search input (user-reported as a visible blue ring); a visible native scrollbar on Settings' tab strip (user-reported, fixed with the project's existing `.scrollbar-none` utility). Two new handoff documents were produced: `docs/FRONTEND_CORE_INTEGRATION_HANDOFF.md` and `docs/FRONTEND_TECHNICAL_DEBT_REGISTER.md` (nothing found at CRITICAL or HIGH severity). This completes roadmap Phase 11 item 26 — the last item on the roadmap.
 
-**NEXT FRONTEND STEP:** Final QA / release validation (`FRONTEND_IMPLEMENTATION_ROADMAP.md` Phase 11, item 26 — the next unstarted item now that item 25 Performance Engineering is complete — verify scope before implementing.)
+**NEXT PHASE:** Not a frontend step. Per the roadmap freeze, the next phase is **JARVIS Core completion + ecosystem integration** — authentication, sessions, RBAC, Credential Manager, AI Provider Registry, Tool Registry, Permission Engine, Execution Engine, Core contracts, Frontend↔Core, Android↔Core, Home↔Core wiring, Smart Home/device execution, Memory, Knowledge, Agents, Automations, realtime, reliability, security, recovery, M19.11 Administration & Lifecycle, M28 Infrastructure/Cloud Management. `docs/FRONTEND_CORE_INTEGRATION_HANDOFF.md` is the starting reference for that work. **Do not start a Step 27 frontend milestone** unless the user explicitly approves reopening the frontend roadmap.
 
 **CURRENT PRODUCT STATE:**
 
@@ -2929,10 +3101,15 @@ A new Emergent workspace/account or coding agent should:
 - JARVIS Visual Identity: complete as a consistency audit (logo/glow/popup-centering/typography/spacing all already correct) plus one real fix — `Waveform` (now in `design-system/patterns/Waveform/`) reacts to `VoiceOrb`'s real `stateColor`-mapped state with per-state amplitude/speed, shared by both the Home hero and the real Voice overlay; no Core contract required, no feature behavior changed
 - Responsive + Accessibility: complete as a hardening pass across desktop/tablet/mobile viewports, keyboard/focus, semantics, touch targets, and reduced motion — zero horizontal overflow found anywhere (17 routes × 7 required viewports); Modal now caps at `max-h-[85vh] overflow-y-auto` (was a confirmed live bug — tall forms could push their footer actions entirely off-screen and unreachable on mobile); `Toast` now respects `prefers-reduced-motion` like every other Framer Motion consumer; a skip-to-main-content link was added to `AppShell`; Drawer/CommandPalette/SearchOverlay/semantic markup/touch targets were audited and found already solid — no Core contract required, no feature behavior changed
 - Performance Engineering: complete as a measurement-first pass — baseline captured (624.47 kB main JS chunk), audited render/timer/listener/search/asset performance and found the large majority already correct (cached service singletons, self-cleaning timers/listeners, subscriber-gated Smart Home polling, `Promise.all` search fan-out); the one measured fix, route code-splitting via `React.lazy` for the 15 non-primary-nav routes, cut the main chunk to 433.52 kB / 125.31 kB gzip (−30.6%/−22.9%) — no Core contract required, no feature behavior changed
-- Remaining modules: pending
-- Real JARVIS Core integrations: pending separate Core contracts
+- Final QA + Frontend Freeze: complete as a production-readiness audit — full route inventory, functional/responsive/accessibility/visual-identity/performance regression all held against their established baselines; security/privacy audit clean; Core-boundary audit of all 19 service seams; four real defects found and fixed via live QA (empty Command Palette "Coming soon" group, off-center popup-open animation, missing Command Palette focus-ring suppression, visible Settings tab scrollbar); `FRONTEND_CORE_INTEGRATION_HANDOFF.md` and `FRONTEND_TECHNICAL_DEBT_REGISTER.md` added — no Core contract required, no feature behavior changed. **This is the last frontend roadmap item.**
+- Remaining frontend modules: none — every planned frontend surface is live
+- Real JARVIS Core integrations: pending separate Core contracts (see `docs/FRONTEND_CORE_INTEGRATION_HANDOFF.md`)
 
-**DO NOT START FINAL QA automatically when merely reading this document. Wait for explicit approval/instruction.**
+**THE FRONTEND FEATURE ROADMAP IS FROZEN AFTER STEP 26. Do not start a
+new frontend milestone when reading this document. Future frontend work
+should be Core integration, contract implementation, security/
+reliability work, or bug fixes — not a new roadmap item — unless the
+user explicitly approves reopening the frontend roadmap.**
 
 ---
 

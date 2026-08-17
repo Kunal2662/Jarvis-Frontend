@@ -150,18 +150,25 @@ export function AppLayout() {
       // loaded/is unavailable.
       buildSearchGroup(() => setSearchOpen(true)),
       ...(controlGroup ? [controlGroup] : []),
-      {
-        // Future surfaces — Core contract not yet wired to the frontend.
-        // Clearly marked so nothing here looks production-ready.
-        heading: 'Coming soon',
-        items: comingSoonModules.map((m) => ({
-          id: m.path,
-          label: m.label,
-          icon: <m.icon />,
-          hint: 'soon',
-          onSelect: () => selectModule(m.path, m.action),
-        })),
-      },
+      // Future surfaces — Core contract not yet wired to the frontend.
+      // Clearly marked so nothing here looks production-ready. Omitted
+      // entirely (never an empty heading) once every module reaches
+      // `live`, the same "no fake/broken-looking group" rule the Control
+      // group above already follows.
+      ...(comingSoonModules.length > 0
+        ? [
+            {
+              heading: 'Coming soon',
+              items: comingSoonModules.map((m) => ({
+                id: m.path,
+                label: m.label,
+                icon: <m.icon />,
+                hint: 'soon',
+                onSelect: () => selectModule(m.path, m.action),
+              })),
+            },
+          ]
+        : []),
       {
         heading: 'Actions',
         items: [

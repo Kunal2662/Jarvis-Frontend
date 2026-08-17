@@ -43,7 +43,7 @@ export function SearchOverlay({
         <DialogPrimitive.Content
           aria-label="Search"
           className={cn(
-            'glass glass-strong fixed left-1/2 top-1/2 z-palette w-[calc(100%-2rem)] max-w-[720px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl shadow-e4 outline-none data-[state=open]:animate-scale-in',
+            'glass glass-strong fixed left-1/2 top-1/2 z-palette w-[calc(100%-2rem)] max-w-[720px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl shadow-e4 outline-none data-[state=open]:animate-centered-scale-in',
             className,
           )}
         >
